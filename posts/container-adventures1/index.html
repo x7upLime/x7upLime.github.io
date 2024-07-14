@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Container Adventures 1 - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Exploring podman&#39;s codebase.. and trying something as stupid as modifying the
+version string when doing `podman version`.. see if it compiles and
+see what happens next
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="Container Adventures 1" />
+<meta property="og:description" content="Exploring podman&#39;s codebase.. and trying something as stupid as modifying the
+version string when doing `podman version`.. see if it compiles and
+see what happens next
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/container-adventures1/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-11-22T22:44:11+31:00" />
+<meta property="article:modified_time" content="2023-01-27T16:11:54+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Container Adventures 1"/>
+<meta name="twitter:description" content="Exploring podman&#39;s codebase.. and trying something as stupid as modifying the
+version string when doing `podman version`.. see if it compiles and
+see what happens next
+"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">Container Adventures 1</h1>
+			<div class="meta">Posted on Nov 22, 2022</div>
+		</div>
+		
+
+		<section class="body">
+			<p>Since this is the first post.. I may start by saying that this will be
+a series documenting my learning process for containers/golang.<br>
+I&rsquo;m finding out about myself, that I tend to implement the head-first
+approach when I have no clear ideas about what I&rsquo;m doing..
+That would mean that I&rsquo;ll definitely (when not bothering the community.. or the
+community not answering me) be drawing conclusions and answering the conclusions
+that I drew myself..</p>
+<p>So everything read on this <del>posts</del> blog.. shouldn&rsquo;t be taken too seriously.</p>
+<p>Actually.. since I&rsquo;m just exploring the life on the internet and have no idea
+if people actually use mails..<br>
+If you&rsquo;ve found something dumb that I wrote, or something
+questionable, or something that you share excitement for&hellip; or just wanna say hi :)..
+please send me a mail <a href="mailto:x7uplime@gmail.com">===&gt; here &lt;===</a> :)</p>
+<h2 id="container-adventures">container adventures</h2>
+<p>Everyone seems to be so much into the containers/kübernetes thing now..</p>
+<p>I heard about good reasons to adopt containers
+and I heard about good reasons to not adopt containers.. it mostly depends on the workflow<br>
+I also heard from coworkers, really bad decisions for kübernetes adoptions in workflows that really
+didn&rsquo;t need that overhead, taken by the upper management just to follow a trend.</p>
+<p>I once met this fellow sysadmin, he was from the bsd world while I was primarily operating on linux boxes..<br>
+I was caught by the container fuzz at my workplace, and already knew something about it; so when a conversation
+about containers was issued.. I was more prone to advocating.<br>
+But this guy already had his workflow in mind.. it was tested, working, and based
+on years of experience.<br>
+So he was telling me how little resources he needed in order to
+run services in bsd jails.. and how efficiently and fault-tolerantly he was able to manage
+its stuff.. so he didn&rsquo;t see any use for containers.<br>
+He presented its arguments in a very conscious way; he knew what he was doing.<br>
+I couldn&rsquo;t argue with that.</p>
+<p>The (now-referred-to-as)&ldquo;legacy&rdquo; way of making stuff has nothing less exciting about its inner workings than
+container-world&rsquo;s stuff inner workings.<br>
+Some elderly colleagues told me the most
+fuck&rsquo;d up technology stories I heard, and they were all about &ldquo;legacy&rdquo; tech.</p>
+<p>Containers is just the new-world-order style of making stuff. It&rsquo;s intriguing.<br>
+It&rsquo;s just something else.. there are just more things going on around it right now.</p>
+<h3 id="prior-knowledge">prior knowledge..</h3>
+<p>Having said that..
+I learned about containers, used them at work, people were happy&hellip;<br>
+But do I really know what&rsquo;s going on?<br>
+Of course not.</p>
+<p>At my workplace, people were very agitated around containers.<br>
+There were a couple personalities, which were involved in kübernetes
+workflows and were advocating for &ldquo;the new world order&rdquo;,
+and they were doing it greatly, with those very interesting stories.</p>
+<p>We were mainly involved on the &ldquo;new-wave&rdquo; of containers, so they gave due credit to docker for being
+the pioneering project for the container world (for its mass adoption), and sold me podman as
+the new way of making things.</p>
+<p>They told me those interesting stories, like they created podman years after docker, they were making it better
+and they were making it 1:1 compatible with docker so that experienced docker users could switch to podman
+by doing something as <code>alias docker=podman</code>, interesting I thought&hellip;</p>
+<p>They were telling me that podman was so superior, that by design it allowed running container
+by not being root, as docker required.. also that podman didn&rsquo;t even required a running service to
+interact with.. Interesting I thought&hellip;</p>
+<p>Is it really that superior? I have no idea.. I liked the stories.<br>
+There are a lot of interesting articles coming out periodically about containers;<br>
+In particular I started carrying this interest about container, after reading
+<a href="https://github.com/saschagrunert/demystifying-containers">this psychedelic series of posts</a> about
+how containers work internally; really good stuff :)</p>
+<ul>
+<li>a container is just a linux process, with a bunch of things added (all the process dependencies, a filesystem, whatever&hellip;);</li>
+<li>all the uppermentioned stuff is contained in container images.. the ones we&rsquo;re pulling from remote container registries (like dockerHub)</li>
+<li>containers are for container images, what processes are for programs(instructions)</li>
+<li>container Runtimes are the ones that actually run containers (crun/runc/&hellip;),
+those are generally hidden to the user.</li>
+<li>Container Engines (docker/podman/..) are the ones that the user
+directly interacts with.. like some kind of &ldquo;frontend&rdquo;?</li>
+</ul>
+<blockquote>
+<p>It took me a quick tour on the &ldquo;demistifying containers&rdquo; series to
+separate containerEngines from containerRuntimes, in that containerThing-idea/intersection
+between the two, that I had before.</p>
+</blockquote>
+<p>Then I thought: &ldquo;since I was already looking to learn some programming language..&rdquo;<br>
+why not learn go while learning containers.. everything container-related seems to
+be written in go&hellip;</p>
+<h3 id="crun---version">crun --version</h3>
+<p>I already took a peek once inside the <a href="https://github.com/containers">containers/</a> organization,
+that podman is part of; It comprehends libraries for container storage, container images, &hellip; as well as other
+tools for building images, container engines, container runtimes,&hellip;<br>
+I thought of it as a common roof for most of the things I looked for in the container world.</p>
+<p><a href="https://docs.podman.io/en/latest/index.html">The podman documentation</a> states that podman is a cli
+built around libpod, and that it relies on OCI compliant container runtimes to run containers..<br>
+Like it doesn&rsquo;t do it on its own?</p>
+<p>Prior to taking on this article, I already cloned a bunch of repos of container runtimes.
+Not based on any specific criteria.. only based on hearsay; like &ldquo;kübernetes dropped support for docker runtime to run container
+on the node, to move towards cri-o&rdquo;&hellip; Interesting I thought..<br>
+also it was mentioned <a href="https://www.suse.com/c/demystifying-containers-part-ii-container-runtimes/">here</a>, so<br>
+<code>git clone https://github.com/cri-o/cri-o.git</code></p>
+<p>Now.. The thing I wanted to start with, was to modify something like the version string;
+so that when calling a binary on my system.. I&rsquo;d know that it would be the one I&rsquo;m tinkering with,
+and not the one that come with some package from my distro.<br>
+This way, if something I was trying to implement(big words..) on that project didn&rsquo;t work,
+I could cross out one of the possible reasons.</p>
+<p>Let&rsquo;s try it on crun.
+Once cloned the repo I did <code>./autogen.sh</code>, then <code>./configure</code> and <code>bear -- make -j9</code> for code navigation..<br>
+Grepping for main didn&rsquo;t help.. If I had to guess, from the root of the repo, I&rsquo;d look inside the src/ folder.<br>
+From then on, a file called as the project itself was the next hint.<br>
+We found main, and from there on:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">int</span>
+</span></span><span class="line"><span class="cl"><span class="nf">main</span> <span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="nf">argp_parse</span> <span class="p">(</span><span class="o">&amp;</span><span class="n">argp</span><span class="p">,</span> <span class="n">argc</span><span class="p">,</span> <span class="n">argv</span><span class="p">,</span> <span class="n">ARGP_IN_ORDER</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">first_argument</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">arguments</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="n">command</span> <span class="o">=</span> <span class="nf">get_command</span> <span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">first_argument</span><span class="p">]);</span>  <span class="c1">/// THIS is interesting
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="k">if</span> <span class="p">(</span><span class="n">command</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">libcrun_fail_with_error</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&#34;unknown command %s&#34;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="n">first_argument</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">static</span> <span class="k">struct</span> <span class="n">commands_s</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="nf">get_command</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">commands_s</span> <span class="o">*</span><span class="n">it</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="k">for</span> <span class="p">(</span><span class="n">it</span> <span class="o">=</span> <span class="n">commands</span><span class="p">;</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">value</span><span class="p">;</span> <span class="n">it</span><span class="o">++</span><span class="p">)</span>  <span class="c1">// Those commands..?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="nf">strcmp</span> <span class="p">(</span><span class="n">it</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="n">it</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="n">commands_s</span> <span class="n">commands</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span> <span class="p">{</span> <span class="n">COMMAND_CREATE</span><span class="p">,</span> <span class="s">&#34;create&#34;</span><span class="p">,</span> <span class="n">crun_command_create</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_DELETE</span><span class="p">,</span> <span class="s">&#34;delete&#34;</span><span class="p">,</span> <span class="n">crun_command_delete</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_EXEC</span><span class="p">,</span> <span class="s">&#34;exec&#34;</span><span class="p">,</span> <span class="n">crun_command_exec</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_LIST</span><span class="p">,</span> <span class="s">&#34;list&#34;</span><span class="p">,</span> <span class="n">crun_command_list</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_KILL</span><span class="p">,</span> <span class="s">&#34;kill&#34;</span><span class="p">,</span> <span class="n">crun_command_kill</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_PS</span><span class="p">,</span> <span class="s">&#34;ps&#34;</span><span class="p">,</span> <span class="n">crun_command_ps</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_RUN</span><span class="p">,</span> <span class="s">&#34;run&#34;</span><span class="p">,</span> <span class="n">crun_command_run</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_SPEC</span><span class="p">,</span> <span class="s">&#34;spec&#34;</span><span class="p">,</span> <span class="n">crun_command_spec</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_START</span><span class="p">,</span> <span class="s">&#34;start&#34;</span><span class="p">,</span> <span class="n">crun_command_start</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_STATE</span><span class="p">,</span> <span class="s">&#34;state&#34;</span><span class="p">,</span> <span class="n">crun_command_state</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_UPDATE</span><span class="p">,</span> <span class="s">&#34;update&#34;</span><span class="p">,</span> <span class="n">crun_command_update</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_PAUSE</span><span class="p">,</span> <span class="s">&#34;pause&#34;</span><span class="p">,</span> <span class="n">crun_command_pause</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_UNPAUSE</span><span class="p">,</span> <span class="s">&#34;resume&#34;</span><span class="p">,</span> <span class="n">crun_command_unpause</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#if HAVE_CRIU &amp;&amp; HAVE_DLOPEN
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>                                 <span class="p">{</span> <span class="n">COMMAND_CHECKPOINT</span><span class="p">,</span> <span class="s">&#34;checkpoint&#34;</span><span class="p">,</span> <span class="n">crun_command_checkpoint</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">{</span> <span class="n">COMMAND_RESTORE</span><span class="p">,</span> <span class="s">&#34;restore&#34;</span><span class="p">,</span> <span class="n">crun_command_restore</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>                                 <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                                     <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                 <span class="p">}</span> <span class="p">};</span>
+</span></span></code></pre></div><p>no <code>version</code> command..</p>
+<p>But immediately under that <code>get_command</code> function there is something:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">enum</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_VERSION</span> <span class="o">=</span> <span class="sc">&#39;v&#39;</span><span class="p">,</span>   <span class="c1">// &lt;----
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="n">OPTION_VERSION_CAP</span> <span class="o">=</span> <span class="sc">&#39;V&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_DEBUG</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_SYSTEMD_CGROUP</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_CGROUP_MANAGER</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_LOG</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_LOG_FORMAT</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_ROOT</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="n">OPTION_ROOTLESS</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// That is also used here..
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">static</span> <span class="k">struct</span> <span class="n">argp_option</span> <span class="n">options</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span> <span class="p">{</span> <span class="s">&#34;debug&#34;</span><span class="p">,</span> <span class="n">OPTION_DEBUG</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#34;produce verbose output&#34;</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;cgroup-manager&#34;</span><span class="p">,</span> <span class="n">OPTION_CGROUP_MANAGER</span><span class="p">,</span> <span class="s">&#34;MANAGER&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#34;cgroup manager&#34;</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;systemd-cgroup&#34;</span><span class="p">,</span> <span class="n">OPTION_SYSTEMD_CGROUP</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&#34;use systemd cgroups&#34;</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;log&#34;</span><span class="p">,</span> <span class="n">OPTION_LOG</span><span class="p">,</span> <span class="s">&#34;FILE&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;log-format&#34;</span><span class="p">,</span> <span class="n">OPTION_LOG_FORMAT</span><span class="p">,</span> <span class="s">&#34;FORMAT&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;root&#34;</span><span class="p">,</span> <span class="n">OPTION_ROOT</span><span class="p">,</span> <span class="s">&#34;DIR&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span> <span class="s">&#34;rootless&#34;</span><span class="p">,</span> <span class="n">OPTION_ROOT</span><span class="p">,</span> <span class="s">&#34;VALUE&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">       <span class="cm">/* HERE ---------------&gt;&gt; */</span>     <span class="p">{</span> <span class="s">&#34;version&#34;</span><span class="p">,</span> <span class="n">OPTION_VERSION</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="c1">// alias OPTION_VERSION_CAP with OPTION_VERSION
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>                                        <span class="p">{</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">OPTION_VERSION_CAP</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">OPTION_ALIAS</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                                            <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                        <span class="p">}</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">										
+</span></span><span class="line"><span class="cl"><span class="c1">// And here...
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ./src/crun.c -- @ parse_opt()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">case</span> <span class="nl">OPTION_VERSION</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">case</span> <span class="nl">OPTION_VERSION_CAP</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="nf">print_version</span> <span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="n">state</span><span class="p">);</span>  <span class="c1">// &lt;----
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>      <span class="nf">exit</span> <span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// There we go...
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ./src/crun.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">static</span> <span class="kt">void</span>
+</span></span><span class="line"><span class="cl"><span class="nf">print_version</span> <span class="p">(</span><span class="n">FILE</span> <span class="o">*</span><span class="n">stream</span><span class="p">,</span> <span class="k">struct</span> <span class="n">argp_state</span> <span class="o">*</span><span class="n">state</span> <span class="n">arg_unused</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">cleanup_free</span> <span class="kt">char</span> <span class="o">*</span><span class="n">rundir</span> <span class="o">=</span> <span class="nf">libcrun_get_state_directory</span> <span class="p">(</span><span class="n">arguments</span><span class="p">.</span><span class="n">root</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;%s version %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">PACKAGE_NAME</span><span class="p">,</span> <span class="n">PACKAGE_VERSION</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;commit: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">GIT_VERSION</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;rundir: %s</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">rundir</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;spec: 1.0.0</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef HAVE_SYSTEMD
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+SYSTEMD &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+SELINUX &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+APPARMOR &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#ifdef HAVE_CAP
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+CAP &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp">#ifdef HAVE_SECCOMP
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+SECCOMP &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp">#ifdef HAVE_EBPF
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+EBPF &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp">#ifdef HAVE_CRIU
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+CRIU &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl">  <span class="nf">libcrun_handler_manager_print_feature_tags</span> <span class="p">(</span><span class="nf">libcrun_get_handler_manager</span> <span class="p">(),</span> <span class="n">stream</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;+YAJL</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>So we can just add a little something to let our future selfs, that we&rsquo;re using the
+tinkered-with binary:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ./src/crun.c -- @ print_version()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="nf">fprintf</span> <span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="s">&#34;%s version %s | :^)</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">PACKAGE_NAME</span><span class="p">,</span> <span class="n">PACKAGE_VERSION</span><span class="p">);</span>
+</span></span></code></pre></div><p>compile/install again and&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ crun --version
+</span></span><span class="line"><span class="cl">crun version 1.7.2.0.0.0.80-940b <span class="p">|</span> :^<span class="o">)</span>
+</span></span><span class="line"><span class="cl">commit: 940bf973f144c81149cf05135f127ca6f0d19eb6
+</span></span><span class="line"><span class="cl">rundir: /run/user/1000/crun
+</span></span><span class="line"><span class="cl">spec: 1.0.0
+</span></span><span class="line"><span class="cl">+SYSTEMD +SELINUX +APPARMOR +CAP +SECCOMP +EBPF +YAJL
+</span></span></code></pre></div><p>There we go</p>
+<p>But now.. how is podman gonna use our crun?<br>
+And how are we gonna know it is <em>our</em> crun?</p>
+<h2 id="is-there-a-way-to-know-more-about-the-underlying-container-runtime-were-using">Is there a way to know more about the underlying container runtime we&rsquo;re using?</h2>
+<p>From <code>$ podman help</code> I can see there is a <code>--runtime</code> flag..<br>
+we can use that tospecify our desired oci-compliant runtime.<br>
+By the way, there is <a href="https://www.suse.com/c/demystifying-containers-part-ii-container-runtimes/">this article</a>
+which talks about container runtimes, and introduces oci.</p>
+<p>We could start digging inside podman to see how that <code>--runtime</code> flag looks like in the sources,
+just like we did for the version in crun.</p>
+<h3 id="podman---runtime">podman --runtime</h3>
+<p>from the root level of the podman repo, I can see something very familiar:<br>
+There is a cmd/ folder in that repo.. Dunno if it&rsquo;s a thing or not
+(<a href="https://github.com/golang-standards/project-layout#cmd">it seems like so</a>)
+but it looks like some kind of standard that everybody follows:<br>
+If your code is gonna be executed, you&rsquo;re probably putting the code for what comes immediately
+next inside the cmd/ folder (usually next is arg parsing, config, &hellip;)</p>
+<p>And in fact, there is our entrypoint.</p>
+<p>Any programming language may or may not require you to provide some kind of entrypoint;<br>
+<a href="https://go.dev/ref/spec#Program_execution">for golang</a> that one is the main function in the main package.</p>
+<p>I can immediately see another something that looks familiar&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// THe following doesn&#39;t seem like much
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ./cmd/podman/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">reexec</span><span class="p">.</span><span class="nf">Init</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// We were invoked with a different argv[0] indicating that we
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// had a specific job to do as a subprocess, and it&#39;s done.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">rootCmd</span> <span class="p">=</span> <span class="nf">parseCommands</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">Execute</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">os</span><span class="p">.</span><span class="nf">Exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// But the parseCommands() has a referents that hints about the project layout:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ./cmd/podman/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">parseCommands</span><span class="p">()</span> <span class="o">*</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span> <span class="p">{</span>
+</span></span></code></pre></div><p>That <code>*cobra.Command</code> refers to <a href="https://github.com/spf13/cobra">the cobra library</a>, which is
+an assured trend in golang, for everything that has a cli.<br>
+THe cobra lib provides logic to manipulate arg parsing, commands, flags,&hellip; and enforces a certain
+layout described in <a href="https://github.com/spf13/cobra/blob/main/user_guide.md#user-guide">the cobra user guide</a>.</p>
+<p>After reading the first two paragraphs, we&rsquo;re starting to have an idea of where to look for things.</p>
+<h4 id="podman-version">podman version</h4>
+<p>Let&rsquo;s say we&rsquo;d like to modify the version string as we did for runc&hellip;</p>
+<p>From the cli, we&rsquo;re calling <code>podman version</code>, but there is no cmd/podman/version.go file..<br>
+perhaps somewhere deeper?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1">## from cmd/podman/</span>
+</span></span><span class="line"><span class="cl">$ find ./ -name <span class="s2">&#34;version.go&#34;</span>
+</span></span><span class="line"><span class="cl">./images/version.go
+</span></span><span class="line"><span class="cl">./system/version.go
+</span></span></code></pre></div><p>It was some shot in the dark, but sometimes it works..<br>
+I&rsquo;ll bet for that system/version.go</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// luckily there is some &#34;func version&#34; there...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// cmd/podman/system/version.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">version</span><span class="p">(</span><span class="nx">cmd</span> <span class="o">*</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">,</span> <span class="nx">args</span> <span class="p">[]</span><span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">versions</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">ContainerEngine</span><span class="p">().</span><span class="nf">Version</span><span class="p">(</span><span class="nx">registry</span><span class="p">.</span><span class="nf">Context</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// I think we could easily toss the rest
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// That ContainerEngine().Version() looks promising..
+</span></span></span><span class="line"><span class="cl"><span class="c1">// let&#39;s see how it looks like:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ./pkg/domain/entities/engine_container.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">ContainerEngine</span> <span class="kd">interface</span> <span class="p">{</span> <span class="c1">//nolint:interfacebloat
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">AutoUpdate</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">AutoUpdateOptions</span><span class="p">)</span> <span class="p">([]</span><span class="o">*</span><span class="nx">AutoUpdateReport</span><span class="p">,</span> <span class="p">[]</span><span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">Config</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Config</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">ContainerAttach</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">nameOrID</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">AttachOptions</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">ContainerCheckpoint</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">namesOrIds</span> <span class="p">[]</span><span class="kt">string</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">CheckpointOptions</span><span class="p">)</span> <span class="p">([]</span><span class="o">*</span><span class="nx">CheckpointReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">ContainerCleanup</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">namesOrIds</span> <span class="p">[]</span><span class="kt">string</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">ContainerCleanupOptions</span><span class="p">)</span> <span class="p">([]</span><span class="o">*</span><span class="nx">ContainerCleanupReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">Diff</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">namesOrIds</span> <span class="p">[]</span><span class="kt">string</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">DiffOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">DiffReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">Events</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">opts</span> <span class="nx">EventsOptions</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">GenerateSystemd</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">nameOrID</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">opts</span> <span class="nx">GenerateSystemdOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">GenerateSystemdReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">GenerateKube</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">nameOrIDs</span> <span class="p">[]</span><span class="kt">string</span><span class="p">,</span> <span class="nx">opts</span> <span class="nx">GenerateKubeOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">GenerateKubeReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">SystemPrune</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">SystemPruneOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">SystemPruneReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">Info</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">KubeApply</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">body</span> <span class="nx">io</span><span class="p">.</span><span class="nx">Reader</span><span class="p">,</span> <span class="nx">opts</span> <span class="nx">ApplyOptions</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">NetworkConnect</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">networkname</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">options</span> <span class="nx">NetworkConnectOptions</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">NetworkCreate</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">network</span> <span class="nx">types</span><span class="p">.</span><span class="nx">Network</span><span class="p">,</span> <span class="nx">createOptions</span> <span class="o">*</span><span class="nx">types</span><span class="p">.</span><span class="nx">NetworkCreateOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">types</span><span class="p">.</span><span class="nx">Network</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">PodCreate</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">specg</span> <span class="nx">PodSpec</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">PodCreateReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">PodClone</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">podClone</span> <span class="nx">PodCloneOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">PodCloneReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">PodExists</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">nameOrID</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">BoolReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">/// and whatever.. it already looks pretty clear.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>We just look at the interface that podman implements:<br>
+Just try to write <code>podman</code> in a shell, followed by any name for that function and to autocomplete.</p>
+<p>I guess we only need to see where that Version() is implemented:</p>
+<pre tabindex="0"><code>pkg/domain/infra/abi/system.go
+426: func (ic ContainerEngine) Version(ctx context.Context) (*entities.SystemVersionReport, error) {
+pkg/domain/infra/tunnel/system.go
+34: func (ic ContainerEngine) Version(ctx context.Context) (*entities.SystemVersionReport, error) {
+</code></pre><p>Two places.. abi and tunnel?<br>
+abi as <a href="https://stackoverflow.com/questions/2171177/what-is-an-application-binary-interface-abi">Application Binary Interface</a>?<br>
+Let&rsquo;s look at both..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// From the one in the tunnel..
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/tunnel/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// 34: func (ic ContainerEngine) Version(ctx context.Context) (*entities.SystemVersionReport, error) {
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">Version</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">entities</span><span class="p">.</span><span class="nx">SystemVersionReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">system</span><span class="p">.</span><span class="nf">Version</span><span class="p">(</span><span class="nx">ic</span><span class="p">.</span><span class="nx">ClientCtx</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>It relies on system.Version()<br>
+..that &ldquo;system&rdquo; coming from this pkg: &ldquo;github.com/containers/podman/v4/pkg/bindings/system&rdquo;<br>
+and that call takes an ic.ClientCtx, which we can see from
+the code in Version, and by the name actually..<br>
+that it is a Context.. which means there are lots of things that are going on
+inside that call, that we &ldquo;don&rsquo;t directly control&rdquo;&hellip;<br>
+Take a peek at <a href="https://go.dev/blog/context">this</a></p>
+</blockquote>
+<p>The actual Version from the tunnel is implemented as so..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/bindings/system/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Version</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">options</span> <span class="o">*</span><span class="nx">VersionOptions</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">entities</span><span class="p">.</span><span class="nx">SystemVersionReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// doesn&#39;t matter...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="p">=</span> <span class="nx">options</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">version</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">define</span><span class="p">.</span><span class="nf">GetVersion</span><span class="p">()</span> <span class="c1">//what&#39;s this??
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">report</span><span class="p">.</span><span class="nx">Client</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">version</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">conn</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">bindings</span><span class="p">.</span><span class="nf">GetClient</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>  <span class="c1">// Hmm..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// And this?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// We&#39;re making an http request...??
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">response</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">conn</span><span class="p">.</span><span class="nf">DoRequest</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">http</span><span class="p">.</span><span class="nx">MethodGet</span><span class="p">,</span> <span class="s">&#34;/version&#34;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">response</span><span class="p">.</span><span class="nx">Body</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// response processing...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// blah...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">/// blaaah..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>Won&rsquo;t investigate further..<br>
+it doesn&rsquo;t seem like what we&rsquo;re looking for..<br>
+It seems like it&rsquo;s the other one:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// 426: func (ic ContainerEngine) Version(ctx context.Context) (*entities.SystemVersionReport, error) {
+</span></span></span></code></pre></div><p>&hellip;</p>
+<blockquote>
+<p>EDIT:<br>
+Ok, I did investigate further..<br>
+When I reviewd the draft for this article&hellip;<br>
+which wasn&rsquo;t really explicative
+about the thought process, so many things I had to reinvestigate.</p>
+<p>Here I followed the path of that define.GetVersion() and saw what type
+that report in report.Client was..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/entities/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// SystemVersionReport describes version information about the running Podman service
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">SystemVersionReport</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Always populated
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Client</span> <span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Version</span> <span class="s">`json:&#34;,omitempty&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// May be populated, when in tunnel mode
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Server</span> <span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Version</span> <span class="s">`json:&#34;,omitempty&#34;`</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>pretty talkative..
+we&rsquo;re looking at <a href="https://docs.podman.io/en/latest/markdown/podman-system-service.1.html">https://docs.podman.io/en/latest/markdown/podman-system-service.1.html</a><br>
+but the me from the past didn&rsquo;t know yet..</p>
+<p>Let&rsquo;s get back at the other one&hellip;</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">Version</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">entities</span><span class="p">.</span><span class="nx">SystemVersionReport</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">report</span> <span class="nx">entities</span><span class="p">.</span><span class="nx">SystemVersionReport</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">v</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">define</span><span class="p">.</span><span class="nf">GetVersion</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">report</span><span class="p">.</span><span class="nx">Client</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">v</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">report</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// seems like we&#39;re just calling define.GetVersion()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// libpod/define/version.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// GetVersion returns a VersionOutput struct for API and podman
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">GetVersion</span><span class="p">()</span> <span class="p">(</span><span class="nx">Version</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">err</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">buildTime</span> <span class="kt">int64</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">buildInfo</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// Converts unix time from string to int64
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">buildTime</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">strconv</span><span class="p">.</span><span class="nf">ParseInt</span><span class="p">(</span><span class="nx">buildInfo</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">Version</span><span class="p">{},</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">Version</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">APIVersion</span><span class="p">:</span> <span class="nx">version</span><span class="p">.</span><span class="nx">APIVersion</span><span class="p">[</span><span class="nx">version</span><span class="p">.</span><span class="nx">Libpod</span><span class="p">][</span><span class="nx">version</span><span class="p">.</span><span class="nx">CurrentAPI</span><span class="p">].</span><span class="nf">String</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Version</span><span class="p">:</span>    <span class="nx">version</span><span class="p">.</span><span class="nx">Version</span><span class="p">.</span><span class="nf">String</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">GoVersion</span><span class="p">:</span>  <span class="nx">runtime</span><span class="p">.</span><span class="nf">Version</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">GitCommit</span><span class="p">:</span>  <span class="nx">gitCommit</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">BuiltTime</span><span class="p">:</span>  <span class="nx">time</span><span class="p">.</span><span class="nf">Unix</span><span class="p">(</span><span class="nx">buildTime</span><span class="p">,</span> <span class="mi">0</span><span class="p">).</span><span class="nf">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">ANSIC</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Built</span><span class="p">:</span>      <span class="nx">buildTime</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">OsArch</span><span class="p">:</span>     <span class="nx">runtime</span><span class="p">.</span><span class="nx">GOOS</span> <span class="o">+</span> <span class="s">&#34;/&#34;</span> <span class="o">+</span> <span class="nx">runtime</span><span class="p">.</span><span class="nx">GOARCH</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Os</span><span class="p">:</span>         <span class="nx">runtime</span><span class="p">.</span><span class="nx">GOOS</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">},</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Same as before&hellip;?
+&hellip;</p>
+<blockquote>
+<p>EDIT:<br>
+Not quite&hellip;<br>
+before it was:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span> 	<span class="nx">version</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">define</span><span class="p">.</span><span class="nf">GetVersion</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">report</span><span class="p">.</span><span class="nx">Client</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">version</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">response</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">conn</span><span class="p">.</span><span class="nf">DoRequest</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">http</span><span class="p">.</span><span class="nx">MethodGet</span><span class="p">,</span> <span class="s">&#34;/version&#34;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ... 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">response</span><span class="p">.</span><span class="nf">Process</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">component</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">report</span><span class="p">.</span><span class="nx">Server</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">define</span><span class="p">.</span><span class="nx">Version</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">APIVersion</span><span class="p">:</span> <span class="nx">component</span><span class="p">.</span><span class="nx">APIVersion</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Version</span><span class="p">:</span>    <span class="nx">component</span><span class="p">.</span><span class="nx">Version</span><span class="p">.</span><span class="nx">Version</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">GoVersion</span><span class="p">:</span>  <span class="nx">component</span><span class="p">.</span><span class="nx">GoVersion</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">GitCommit</span><span class="p">:</span>  <span class="nx">component</span><span class="p">.</span><span class="nx">GitCommit</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">BuiltTime</span><span class="p">:</span>  <span class="nx">time</span><span class="p">.</span><span class="nf">Unix</span><span class="p">(</span><span class="nx">b</span><span class="p">.</span><span class="nf">Unix</span><span class="p">(),</span> <span class="mi">0</span><span class="p">).</span><span class="nf">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">ANSIC</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Built</span><span class="p">:</span>      <span class="nx">b</span><span class="p">.</span><span class="nf">Unix</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">OsArch</span><span class="p">:</span>     <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s/%s&#34;</span><span class="p">,</span> <span class="nx">component</span><span class="p">.</span><span class="nx">Os</span><span class="p">,</span> <span class="nx">component</span><span class="p">.</span><span class="nx">Arch</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Os</span><span class="p">:</span>         <span class="nx">component</span><span class="p">.</span><span class="nx">Os</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">report</span><span class="p">,</span> <span class="nx">err</span>
+</span></span></code></pre></div><p>Looks like we already learned something about the codebase.. wonderfule</p>
+</blockquote>
+<p>It seems more like abi&hellip;<br>
+sometimes you have to try it to make a sense out of it&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libpod/define/version.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">GetVersion</span><span class="p">()</span> <span class="p">(</span><span class="nx">Version</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Version</span><span class="p">:</span>    <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s | :^)&#34;</span><span class="p">,</span> <span class="nx">version</span><span class="p">.</span><span class="nx">Version</span><span class="p">.</span><span class="nf">String</span><span class="p">()),</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman version
+</span></span><span class="line"><span class="cl">Client:       Podman Engine
+</span></span><span class="line"><span class="cl">Version:      4.4.0-dev <span class="p">|</span> :^<span class="o">)</span>
+</span></span><span class="line"><span class="cl">API Version:  4.4.0-dev
+</span></span><span class="line"><span class="cl">Go Version:   go1.19.2
+</span></span><span class="line"><span class="cl">Git Commit:   4bbe2ee012aec2283247e06b7a9066906b2cc92e-dirty
+</span></span><span class="line"><span class="cl">Built:        Sat Jan <span class="m">28</span> 00:23:42 <span class="m">2023</span>
+</span></span><span class="line"><span class="cl">OS/Arch:      linux/amd64
+</span></span></code></pre></div><p>There we go.</p>
+<h3 id="now-back-to-our-runtime-thing">Now.. back to our runtime thing..</h3>
+<p>I can see no reference to either the path or the version of the runtime we&rsquo;re using..</p>
+<blockquote>
+<p>Figuring what I was trying to say at that time..<br>
+This came out a couple of months after its draft, at the start of this journey.</p>
+<p>Reading this a second time..<br>
+I realized how clear the outpuf for <code>podman help</code> was..<br>
+I was certainly looking for the wrong thing&hellip; and that blinded me..<br>
+But enough of this.. there&rsquo;s the twist at the end of the article.</p>
+</blockquote>
+<p>but maybe I&rsquo;ve just looked in the wrong corner.</p>
+<p>I was only able to obtain a list of supoprted oci runtimes and relative search paths,
+but no reference to the one we&rsquo;re actually using&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// This is not even podman..
+</span></span></span><span class="line"><span class="cl"><span class="c1">// It&#39;s the common/ module of the containers/ organization
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// pkg/config/default.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">c</span><span class="p">.</span><span class="nx">OCIRuntimes</span> <span class="p">=</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">][]</span><span class="kt">string</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;crun&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/sbin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/sbin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/sbin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/run/current-system/sw/bin/crun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;crun-wasm&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/sbin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/sbin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/sbin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/run/current-system/sw/bin/crun-wasm&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;runc&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/sbin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/sbin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/sbin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/lib/cri-o-runc/sbin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/run/current-system/sw/bin/runc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;runj&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/runj&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;kata&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/sbin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/sbin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/sbin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/kata-runtime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/kata-qemu&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/kata-fc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;runsc&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/sbin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/sbin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/sbin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/run/current-system/sw/bin/runsc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;youki&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/youki&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/youki&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/bin/youki&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/run/current-system/sw/bin/youki&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;krun&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/bin/krun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/krun&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;ocijail&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;/usr/local/bin/ocijail&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// Here&#39;s where we&#39;re coming from..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// FROM
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/config/config.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">EngineConfig</span><span class="p">)</span> <span class="nf">findRuntime</span><span class="p">()</span> <span class="kt">string</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Search for crun first followed by runc, kata, runsc
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">name</span> <span class="o">:=</span> <span class="k">range</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;crun&#34;</span><span class="p">,</span> <span class="s">&#34;runc&#34;</span><span class="p">,</span> <span class="s">&#34;runj&#34;</span><span class="p">,</span> <span class="s">&#34;kata&#34;</span><span class="p">,</span> <span class="s">&#34;runsc&#34;</span><span class="p">,</span> <span class="s">&#34;ocijail&#34;</span><span class="p">}</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// checked where OCIRuntimes was used..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">v</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">c</span><span class="p">.</span><span class="nx">OCIRuntimes</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// FROM
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/config/default.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">defaultConfigFromMemory</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">EngineConfig</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Needs to be called after populating c.OCIRuntimes.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">c</span><span class="p">.</span><span class="nx">OCIRuntime</span> <span class="p">=</span> <span class="nx">c</span><span class="p">.</span><span class="nf">findRuntime</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// FROM
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/config/config.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// OCIRuntime is the OCI runtime to use.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">OCIRuntime</span> <span class="kt">string</span> <span class="s">`toml:&#34;runtime,omitempty&#34;`</span>	
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// FROM
+</span></span></span><span class="line"><span class="cl"><span class="c1">// cmd/podman/root.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">rootFlags</span><span class="p">(</span><span class="nx">cmd</span> <span class="o">*</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">,</span> <span class="nx">podmanConfig</span> <span class="o">*</span><span class="nx">entities</span><span class="p">.</span><span class="nx">PodmanConfig</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">//...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">runtimeFlagName</span> <span class="o">:=</span> <span class="s">&#34;runtime&#34;</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">pFlags</span><span class="p">.</span><span class="nf">StringVar</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">podmanConfig</span><span class="p">.</span><span class="nx">RuntimePath</span><span class="p">,</span> <span class="nx">runtimeFlagName</span><span class="p">,</span> <span class="nx">podmanConfig</span><span class="p">.</span><span class="nx">ContainersConfDefaultsRO</span><span class="p">.</span><span class="nx">Engine</span><span class="p">.</span><span class="nx">OCIRuntime</span><span class="p">,</span> <span class="s">&#34;Path to the OCI-compatible binary used to run containers.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">_</span> <span class="p">=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nf">RegisterFlagCompletionFunc</span><span class="p">(</span><span class="nx">runtimeFlagName</span><span class="p">,</span> <span class="nx">completion</span><span class="p">.</span><span class="nx">AutocompleteDefault</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="stumbled-upon-container-creation">stumbled upon container creation..</h2>
+<p>ContainerEngine.ContainerCreate is an interesting function,</p>
+<blockquote>
+<p>Trying to recreate the line of thought&hellip;<br>
+Think I lost the thread and retraced my steps..</p>
+</blockquote>
+<p>it calls things like generate.MakeContainer and generate.ExecuteCreate, which put
+everything in place, to obtain a container object to do stuff with.. like running it</p>
+<p>In other words: &ldquo;containers need a big config&rdquo;, they&rsquo;re complex objects.<br>
+The most important(I guess..) containers commands in ContainerEngine, like
+ContainerCreate, ContainerClone, ContainerRun,&hellip; all rely on that
+pkg/specgen/generate package.</p>
+<p>From what I can see, there are those big structs that each container
+rely on:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/specgen/specgen.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// SpecGenerator creates an OCI spec and Libpod configuration options to create
+</span></span></span><span class="line"><span class="cl"><span class="c1">// a container based on the given configuration.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">SpecGenerator</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerBasicConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerStorageConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerSecurityConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerCgroupConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerNetworkConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerResourceConfig</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ContainerHealthCheckConfig</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">image</span>             <span class="o">*</span><span class="nx">libimage</span><span class="p">.</span><span class="nx">Image</span> <span class="s">`json:&#34;-&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">resolvedImageName</span> <span class="kt">string</span>          <span class="s">`json:&#34;-&#34;`</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is the thing that ContainerCreate takes as a param,
+I guess is the most complete struct for container configuration&hellip;<br>
+It inherits several other structs that should be responsible for given
+container lifecycle configurations.</p>
+<p>Oh wait.. specgen.MakeContainer, doesn&rsquo;t only parse/adjust config..
+it also calls specgen.makeCommand, which is responsible for a very familiar
+aspect of a container run:<br>
+The command that is run by the container.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/specgen/generate/oci.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Produce the final command for the container.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">makeCommand</span><span class="p">(</span><span class="nx">s</span> <span class="o">*</span><span class="nx">specgen</span><span class="p">.</span><span class="nx">SpecGenerator</span><span class="p">,</span> <span class="nx">imageData</span> <span class="o">*</span><span class="nx">libimage</span><span class="p">.</span><span class="nx">ImageData</span><span class="p">,</span> <span class="nx">rtc</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Config</span><span class="p">)</span> <span class="p">([]</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">finalCommand</span> <span class="o">:=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// This draws the entrypoint from a number of places:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// * s.Entrypoint is retrieved during container creation command I think..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// like $ podman container create --entrypoint
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// * imageData.Config.Entrypoint should be
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// the Dockerfile/Containerfile&#39;s ENTRYPOINT entry :)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// .. 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// what happens here is that the specified --entrypoint flag 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// takes precedence over the Containerfile&#39;s ENTRYPOINT
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">entrypoint</span> <span class="o">:=</span> <span class="nx">s</span><span class="p">.</span><span class="nx">Entrypoint</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">entrypoint</span> <span class="o">==</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="nx">imageData</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">entrypoint</span> <span class="p">=</span> <span class="nx">imageData</span><span class="p">.</span><span class="nx">Config</span><span class="p">.</span><span class="nx">Entrypoint</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// This takes care of multiple entrypoints
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// like:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ENTRYPOINT [&#34;/bin/bash&#34;, &#34;/bin/somethingelse&#34;]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// if we have multiple entrypoints,
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// or we have a non-empty first entrypoint in general..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// we add that to the final container command.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Don&#39;t append the entrypoint if it is [&#34;&#34;]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">entrypoint</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="o">||</span> <span class="nx">entrypoint</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">finalCommand</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">finalCommand</span><span class="p">,</span> <span class="nx">entrypoint</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Only use image command if the user did not manually set an
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// entrypoint.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// Is that so? s.Command is user prefixed cmd at the end of podman run?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// I think so:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// from: cmd/podman/containers/run.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// inside func run(cmd *cobra.Command, args []string) error
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// which is called by &#34;podman run&#34; or &#34;podman container run&#34;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// 	report, err := registry.ContainerEngine().ContainerRun(registry.GetContext(), runOpts)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">//
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">command</span> <span class="o">:=</span> <span class="nx">s</span><span class="p">.</span><span class="nx">Command</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">command</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">imageData</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="nb">len</span><span class="p">(</span><span class="nx">s</span><span class="p">.</span><span class="nx">Entrypoint</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">command</span> <span class="p">=</span> <span class="nx">imageData</span><span class="p">.</span><span class="nx">Config</span><span class="p">.</span><span class="nx">Cmd</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// appends the command, to the entrypoint
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">finalCommand</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">finalCommand</span><span class="p">,</span> <span class="nx">command</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// if there&#39;s still nothing:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">finalCommand</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;no command or entrypoint provided, and no CMD or ENTRYPOINT from image&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// if the spec for the container tells us 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// that we need an init:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">s</span><span class="p">.</span><span class="nx">Init</span> <span class="p">{</span>  <span class="c1">// a bool in the container spec.. not sure where it come from
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">initPath</span> <span class="o">:=</span> <span class="nx">s</span><span class="p">.</span><span class="nx">InitPath</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">initPath</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="o">&amp;&amp;</span> <span class="nx">rtc</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="c1">// is there such a thing as a containerENgine default
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">// path for container PID1??
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">//.. 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">// Apparently there is:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">// pkg/config/default.go @ container/common
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">// 	// DefaultInitPath is the default path to the container-init binary.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">//	DefaultInitPath = &#34;/usr/libexec/podman/catatonit&#34;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="nx">initPath</span> <span class="p">=</span> <span class="nx">rtc</span><span class="p">.</span><span class="nx">Engine</span><span class="p">.</span><span class="nx">InitPath</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">initPath</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;no path to init binary found but container requested an init&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">finalCommand</span> <span class="p">=</span> <span class="nb">append</span><span class="p">([]</span><span class="kt">string</span><span class="p">{</span><span class="nx">define</span><span class="p">.</span><span class="nx">ContainerInitPath</span><span class="p">,</span> <span class="s">&#34;--&#34;</span><span class="p">},</span> <span class="nx">finalCommand</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">finalCommand</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>One possible call stack has this aspect:</p>
+<pre tabindex="0"><code> 1 cmd/podman/containers/run.go - run() -- your &#34;$ podman run&#34;
+ 2 pkg/domain/infra/abi/containers.go - (*ContainerEngine),ContainerRun() -- if locally
+ 3 pkg/specgen/generate/container_create.go - generate.MakeContainer()
+ 4 pkg/specgen/generate/oci.go - makeCommand()
+</code></pre><p>While finding out how s.Command gets instantiated:<br>
+*Incontrovertible proof that <code>$ podman run</code> and <code>$ podman container run</code> are synonyms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/podman/containers/run.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">runDescription</span> <span class="p">=</span> <span class="s">&#34;Runs a command in a new container from the given image&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">runCommand</span>     <span class="p">=</span> <span class="o">&amp;</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Args</span><span class="p">:</span>              <span class="nx">cobra</span><span class="p">.</span><span class="nf">MinimumNArgs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Use</span><span class="p">:</span>               <span class="s">&#34;run [options] IMAGE [COMMAND [ARG...]]&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Short</span><span class="p">:</span>             <span class="s">&#34;Run a command in a new container&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Long</span><span class="p">:</span>              <span class="nx">runDescription</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">RunE</span><span class="p">:</span>              <span class="nx">run</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ValidArgsFunction</span><span class="p">:</span> <span class="nx">common</span><span class="p">.</span><span class="nx">AutocompleteCreateRun</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Example</span><span class="p">:</span> <span class="s">`podman run imageID ls -alF /etc
+</span></span></span><span class="line"><span class="cl"><span class="s">  podman run --network=host imageID dnf -y install java
+</span></span></span><span class="line"><span class="cl"><span class="s">  podman run --volume /var/hostdir:/var/ctrdir -i -t fedora /bin/bash`</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">containerRunCommand</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Args</span><span class="p">:</span>              <span class="nx">cobra</span><span class="p">.</span><span class="nf">MinimumNArgs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Use</span><span class="p">:</span>               <span class="nx">runCommand</span><span class="p">.</span><span class="nx">Use</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Short</span><span class="p">:</span>             <span class="nx">runCommand</span><span class="p">.</span><span class="nx">Short</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Long</span><span class="p">:</span>              <span class="nx">runCommand</span><span class="p">.</span><span class="nx">Long</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">RunE</span><span class="p">:</span>              <span class="nx">runCommand</span><span class="p">.</span><span class="nx">RunE</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ValidArgsFunction</span><span class="p">:</span> <span class="nx">runCommand</span><span class="p">.</span><span class="nx">ValidArgsFunction</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Example</span><span class="p">:</span> <span class="s">`podman container run imageID ls -alF /etc
+</span></span></span><span class="line"><span class="cl"><span class="s">	podman container run --network=host imageID dnf -y install java
+</span></span></span><span class="line"><span class="cl"><span class="s">	podman container run --volume /var/hostdir:/var/ctrdir -i -t fedora /bin/bash`</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Another something that is interesting from the makeCommand,
+is the imageData.. which is of type *libimage.ImageData, which comes
+from the containers/common library.</p>
+<p>Those libraries are used by clis such as (at least) podman, buildah, skopeo,&hellip;
+and are at the core of the image-interactions mechanism
+that the clis build on top of&hellip;<br>
+podman/docker/whatever are the container engines..<br>
+but in fact they&rsquo;re just upperlevel logic,
+that is wrapped around some more basic/lowlevel/lib-provided logic.</p>
+<p>Yeah, it is pretty obvious..<br>
+but I used to think about podman/docker, like those
+mysterious boxes that magic came out of..
+Didn&rsquo;t even thought about container libraries..</p>
+<h3 id="different-engines">Different engines?</h3>
+<p>We already saw this with the two implementations of ContainerEngine.Version(),
+the infra/abi thing..<br>
+Let&rsquo;s get back at that run() that gets called when we <code>podman run</code> something..</p>
+<p>This line that calls the implementation-specific ContainerRun():</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// from cmd/podman/containers/run.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  -- inside run()
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">report</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">ContainerEngine</span><span class="p">().</span><span class="nf">ContainerRun</span><span class="p">(</span><span class="nx">registry</span><span class="p">.</span><span class="nf">GetContext</span><span class="p">(),</span> <span class="nx">runOpts</span><span class="p">)</span> 
+</span></span></code></pre></div><p>Calls ContainerEngine(), in order to instantiate the actual implementation of the
+ContainerEngine-thing&hellip;<br>
+It returns an &rsquo;entities.ContainerEngine&rsquo;-thing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/podman/registry/registry.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">ContainerEngine</span><span class="p">()</span> <span class="nx">entities</span><span class="p">.</span><span class="nx">ContainerEngine</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">containerEngine</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>That containerEngine it returns is
+a global var defined @ <code>cmd/podman/registry/registry.go</code>,<br>
+that global var was tinkered by
+<code>registry.NewContainerEngine() @ pkg/domain/infra/runtime_abi.go</code>,<br>
+which gets *podmanOptions as a parameter.. which in turn gets instantiated by the
+flags passed to the actual <code>podman run</code> and by relative defaults.</p>
+<p>That NewContainerEngine looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/runtime_abi.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// NewContainerEngine factory provides a libpod runtime for container-related operations
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">NewContainerEngine</span><span class="p">(</span><span class="nx">facts</span> <span class="o">*</span><span class="nx">entities</span><span class="p">.</span><span class="nx">PodmanConfig</span><span class="p">)</span> <span class="p">(</span><span class="nx">entities</span><span class="p">.</span><span class="nx">ContainerEngine</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">switch</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">EngineMode</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nx">entities</span><span class="p">.</span><span class="nx">ABIMode</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">r</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">NewLibpodRuntime</span><span class="p">(</span><span class="nx">facts</span><span class="p">.</span><span class="nx">FlagSet</span><span class="p">,</span> <span class="nx">facts</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">r</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nx">entities</span><span class="p">.</span><span class="nx">TunnelMode</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ctx</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">bindings</span><span class="p">.</span><span class="nf">NewConnectionWithIdentity</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">URI</span><span class="p">,</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">Identity</span><span class="p">,</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">MachineMode</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="o">&amp;</span><span class="nx">tunnel</span><span class="p">.</span><span class="nx">ContainerEngine</span><span class="p">{</span><span class="nx">ClientCtx</span><span class="p">:</span> <span class="nx">ctx</span><span class="p">},</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;runtime mode &#39;%v&#39; is not supported&#34;</span><span class="p">,</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">EngineMode</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>So if we want abi, we create a new LibpodRuntime,<br>
+if we want tunnel, we try to connect with something.</p>
+<blockquote>
+<p>EDIT:<br>
+yep.. seems right;<br>
+we were looking at podman&rsquo;s SmallThinDaemon</p>
+</blockquote>
+<h3 id="implementations">Implementations</h3>
+<p>There are different implementations of the containerEngine/ImageEngine/SYstemEngine:<br>
+They&rsquo;re here:</p>
+<ul>
+<li>github.com/containers/podman/v4/pkg/domain/infra/abi &ndash;&gt; ./pkg/domain/infra/abi/</li>
+<li>github.com/containers/podman/v4/pkg/domain/infra/tunnel &ndash;&gt; ./pkg/domain/infra/tunne/</li>
+</ul>
+<p>In general&hellip;.
+github.com/containers/podman/v4/pkg/domain/infra is the package containing
+the actual implementations (..of &ldquo;podman&rdquo;?).</p>
+<p>I&rsquo;m thinking that tunnel is the implementation of the ContainerEngine interface,
+that it&rsquo;s supposed to be called from the podman api.</p>
+<p>THe functions inside the tunnel, call functions inside the ./pkg/bindings/containers package.
+The functions inside the abi don&rsquo;t.
+That bindings package is at the same level as those libpod functions we already saw..
+instead of directly operating with specs/images/whatnot/.. it&rsquo;s really clear what they do<br>
+One example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/bindings/containers/create.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">CreateWithSpec</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">s</span> <span class="o">*</span><span class="nx">specgen</span><span class="p">.</span><span class="nx">SpecGenerator</span><span class="p">,</span> <span class="nx">options</span> <span class="o">*</span><span class="nx">CreateOptions</span><span class="p">)</span> <span class="p">(</span><span class="nx">entities</span><span class="p">.</span><span class="nx">ContainerCreateResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">ccr</span> <span class="nx">entities</span><span class="p">.</span><span class="nx">ContainerCreateResponse</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">options</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">options</span> <span class="p">=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">CreateOptions</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="p">=</span> <span class="nx">options</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">conn</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">bindings</span><span class="p">.</span><span class="nf">GetClient</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">ccr</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">specgenString</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">jsoniter</span><span class="p">.</span><span class="nf">MarshalToString</span><span class="p">(</span><span class="nx">s</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">ccr</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">stringReader</span> <span class="o">:=</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">NewReader</span><span class="p">(</span><span class="nx">specgenString</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">response</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">conn</span><span class="p">.</span><span class="nf">DoRequest</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">stringReader</span><span class="p">,</span> <span class="nx">http</span><span class="p">.</span><span class="nx">MethodPost</span><span class="p">,</span> <span class="s">&#34;/containers/create&#34;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">ccr</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">response</span><span class="p">.</span><span class="nx">Body</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">ccr</span><span class="p">,</span> <span class="nx">response</span><span class="p">.</span><span class="nf">Process</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">ccr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The two(abi/tunnel) are the implementation of the same interface that
+github.com/containers/podman/v4/pkg/domain/entities.ContainerEngine is;<br>
+abi is &ldquo;the podman&rdquo; itself,<br>
+tunnel is podman frontend that is meant to be used
+by some http client, against some backend (perhaps podman itself..).</p>
+<p>the containerEngine of tunnel:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/tunnel/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Container-related runtime using an ssh-tunnel to utilize Podman service
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">ContainerEngine</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ClientCtx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>the containerEngine of abi:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Container-related runtime linked against libpod library
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">ContainerEngine</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Libpod</span> <span class="o">*</span><span class="nx">libpod</span><span class="p">.</span><span class="nx">Runtime</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>so one is backed by a libpod runtime: some crun/runc/crio/crun-wasm/whatever<br>
+the other one is backed only by a context, and its methods are
+implemented on top of the github.com/containers/podman/v4/pkg/bindings
+package, which is a golang binding to podman&rsquo;s REST API.<br>
+This data structure inside the bindings package tells us more on what it is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/bindings/connection.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">Connection</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">URI</span>    <span class="o">*</span><span class="nx">url</span><span class="p">.</span><span class="nx">URL</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Client</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Client</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Top-level methods of the bindings package, intitialize a client, which is to be called to make requests.<br>
+This signature inside the connection.go of the bindings package tells us how its ment to be called:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// NewConnectionWithIdentity takes a URI as a string and returns a context with the
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Connection embedded as a value.  This context needs to be passed to each
+</span></span></span><span class="line"><span class="cl"><span class="c1">// endpoint to work correctly.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//
+</span></span></span><span class="line"><span class="cl"><span class="c1">// A valid URI connection should be scheme://
+</span></span></span><span class="line"><span class="cl"><span class="c1">// For example tcp://localhost:&lt;port&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1">// or unix:///run/podman/podman.sock
+</span></span></span><span class="line"><span class="cl"><span class="c1">// or ssh://&lt;user&gt;@&lt;host&gt;[:port]/run/podman/podman.sock?secure=True
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">NewConnectionWithIdentity</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">uri</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">identity</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">machine</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span><span class="cm">/*...*/</span><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>From <a href="https://github.com/containers/podman/blob/main/pkg/bindings/README.md">this README</a>(
+referenced bu the doc.go file inside the bindings pkg),
+we can have the complete picture.</p>
+<p>That is theoretically we can use just the bindings pkg to interact with a
+podman service, via http,<br>
+from our go application&hellip;<br>
+without getting out to the shell..<br>
+even without relying on a podman installed on the system!</p>
+</blockquote>
+<h2 id="container-hacking">Container hacking</h2>
+<p>Now that we have a clearer idea about how things are designed..<br>
+We can start writing something that would at least make
+sense(programmatically speaking), to see then how the implementation evolves from there..</p>
+<p>We know how the ContainerEngine thing is implemented..<br>
+But what about the container runtime?<br>
+And I&rsquo;m referring to the one that we&rsquo;re actually using,
+the one that&rsquo;s currently embedded in some struct,
+not some default path.<br>
+We&rsquo;re currently relying on specifying the runtime to podman,
+but we have nothing from podman that tells us that it&rsquo;s actually THAT ONE.</p>
+<h3 id="from-the-bottom-to-the-top">from the bottom to the top&hellip;</h3>
+<p>Added a method to the ContainerEngine interface here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/domain/entities/engine_container.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="nf">GetRuntimeInfo</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="kt">string</span>
+</span></span></code></pre></div><p>Added the implementation here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="o">*</span><span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">GetRuntimeInfo</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="kt">string</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">ic</span><span class="p">.</span><span class="nx">Libpod</span><span class="p">.</span><span class="nf">GetOCIRuntimePath</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="c1">// let&#39;s start by getting this...
+</span></span></span></code></pre></div><p>and here:<br>
+(otherwise it would not compile&hellip;)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/tunnel/system.go 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="o">*</span><span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">GetRuntimeInfo</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="kt">string</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="s">&#34;toobad\n&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Then glued all together here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// cmd/podman/system/whichruntime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">system</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;fmt&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;os&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/containers/podman/v4/cmd/podman/registry&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/containers/podman/v4/cmd/podman/validate&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/spf13/cobra&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">whichRuntimeCommand</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Use</span><span class="p">:</span>               <span class="s">&#34;whichruntime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Args</span><span class="p">:</span>              <span class="nx">validate</span><span class="p">.</span><span class="nx">NoArgs</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Short</span><span class="p">:</span>             <span class="s">&#34;Display some runtime related informations....&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">RunE</span><span class="p">:</span>              <span class="nx">whichruntime</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="nx">displaySearchPaths</span> <span class="kt">bool</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">displaySearchPathsUsage</span> <span class="p">=</span> <span class="s">&#34;show all configured runtime search paths&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">init</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">registry</span><span class="p">.</span><span class="nx">Commands</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">registry</span><span class="p">.</span><span class="nx">Commands</span><span class="p">,</span> <span class="nx">registry</span><span class="p">.</span><span class="nx">CliCommand</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Command</span><span class="p">:</span> <span class="nx">whichRuntimeCommand</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">flags</span> <span class="o">:=</span> <span class="nx">whichRuntimeCommand</span><span class="p">.</span><span class="nf">Flags</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">flags</span><span class="p">.</span><span class="nf">BoolVarP</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">displaySearchPaths</span><span class="p">,</span> <span class="s">&#34;display-search-paths&#34;</span><span class="p">,</span> <span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="kc">false</span><span class="p">,</span> <span class="nx">displaySearchPathsUsage</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">whichruntime</span><span class="p">(</span><span class="nx">cmd</span> <span class="o">*</span><span class="nx">cobra</span><span class="p">.</span><span class="nx">Command</span><span class="p">,</span> <span class="nx">args</span> <span class="p">[]</span><span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ctx</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">GetContext</span><span class="p">()</span> <span class="c1">//getting context
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">ce</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">ContainerEngine</span><span class="p">()</span> <span class="c1">// getting engine
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">displaySearchPaths</span> <span class="o">==</span> <span class="kc">true</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ctengConf</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ce</span><span class="p">.</span><span class="nf">Config</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">fmt</span><span class="p">.</span><span class="nf">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span> <span class="s">&#34;During config retrieval from engine: %v\n&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;Configured search paths:\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">v</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">ctengConf</span><span class="p">.</span><span class="nx">Engine</span><span class="p">.</span><span class="nx">OCIRuntimes</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;%s:\n&#34;</span><span class="p">,</span> <span class="nx">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">path</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">v</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t-- %s\n&#34;</span><span class="p">,</span> <span class="nx">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;In-use runtime:\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;%s\n&#34;</span><span class="p">,</span> <span class="nx">ce</span><span class="p">.</span><span class="nf">GetRuntimeInfo</span><span class="p">(</span><span class="nx">ctx</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>It&rsquo;s a shot in the dark, because the underlying <code>ic.Libpod.GetOCIRuntimePath()</code> I used
+to implement the abi method, looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libpod/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// GetOCIRuntimePath retrieves the path of the default OCI runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="nf">GetOCIRuntimePath</span><span class="p">()</span> <span class="kt">string</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nx">defaultOCIRuntime</span><span class="p">.</span><span class="nf">Path</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>I was puzzled by it from the start.. at least we&rsquo;d see that all the pieces can
+stick together.. the worst that can happen is that I have to replace that defaultThing
+with something else..</p>
+<p>At this point we should be getting the path for the default OCIRuntime(..?)<br>
+How does that change if I set the runtime flag?</p>
+<p>The end result&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman --runtime crun whichruntime
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">In-use runtime:
+</span></span><span class="line"><span class="cl">/usr/bin/crun
+</span></span><span class="line"><span class="cl"><span class="c1"># at least it works..</span>
+</span></span></code></pre></div><p>odd&hellip;<br>
+because if I say <code>$ which crun</code>, I get a <code>/usr/local/bin/crun</code>&hellip;<br>
+And the command fails if I call it with some runtimes I built myself:<br>
+It tells me <code>Error: default OCI runtime &quot;crio&quot; not found: invalid argument</code>&hellip;<br>
+How could that be? I know that they&rsquo;re on the system..<br>
+Is podman really that strict?<br>
+Does it pull out its own runtimes from its hat?</p>
+<p>Perhaps..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="k">$(</span>podman --runtime <span class="k">$(</span>which crun<span class="k">)</span> whichruntime <span class="p">|</span> tail -n 1<span class="k">)</span> --version
+</span></span><span class="line"><span class="cl">crun version 1.7.0.0.0.26-52e3 <span class="p">|</span> :^<span class="o">)</span>
+</span></span><span class="line"><span class="cl">commit: 52e303d3251c63c1a55d79cd1d45563d38ffb070
+</span></span><span class="line"><span class="cl">rundir: /run/user/1000/crun
+</span></span><span class="line"><span class="cl">spec: 1.0.0
+</span></span><span class="line"><span class="cl">+SYSTEMD +SELINUX +APPARMOR +CAP +SECCOMP +EBPF +YAJL
+</span></span></code></pre></div><p>Promising start..</p>
+<h3 id="deeper">deeper</h3>
+<p>If there is to go deeper with the whichruntime implementation&hellip;<br>
+Perhaps to achieve something more than the path of the underlying runtime..
+We must end up here:<br>
+libpod/runtime.go</p>
+<p>This contains</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">Runtime</span> <span class="kd">struct</span> <span class="p">{</span><span class="cm">/*...*/</span><span class="p">}</span>
+</span></span></code></pre></div><p>which is <strong>LibPod</strong>.<br>
+Which should be how podman interacts with crun/runc/crun-wasm/crio/runj/youki/kata/krun/runsc/&hellip;</p>
+<h3 id="heading">+</h3>
+<p>By the way.. it is not called &ldquo;<strong>runtime</strong>&rdquo; inside podman code (an authoritative place),
+it is called &ldquo;<strong>OCI runtime</strong>&rdquo;; because &ldquo;<strong>runtime</strong>&rdquo; refers to..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Make a new runtime based on the given configuration
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Sets up containers/storage, state store, OCI runtime
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">makeRuntime</span><span class="p">(</span><span class="nx">runtime</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="p">(</span><span class="nx">retErr</span> <span class="kt">error</span><span class="p">)</span>
+</span></span></code></pre></div><p>a libpod run..?..maybe..?</p>
+<h2 id="heading-1">&hellip;</h2>
+<p>At this point, to have that functionality that I needed from libpod,
+I started building from libpod&rsquo;s getInfo, all the way up to cmd/podman&hellip;</p>
+<p>Then I found out that there already existed exactly what I&rsquo;ve tried to build:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/info.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// top-level &#34;host&#34; info
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="nf">hostInfo</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">HostInfo</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> 
+</span></span></code></pre></div><p>hostinfo!? I saw it and didn&rsquo;t sound like what I was looking for..</p>
+<p>one level up:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/info.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Info returns the store and host information
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="nf">info</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span></code></pre></div><p>another level up:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/runtime.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Info returns the store and host information
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="nf">Info</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nf">info</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>another level up..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="o">*</span><span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">Info</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Wat?
+</span></span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman --runtime <span class="k">$(</span>which crun<span class="k">)</span> info
+</span></span><span class="line"><span class="cl"><span class="c1"># ... cut some output</span>
+</span></span><span class="line"><span class="cl">  ociRuntime:
+</span></span><span class="line"><span class="cl">    name: /usr/local/bin/crun
+</span></span><span class="line"><span class="cl">    package: Unknown
+</span></span><span class="line"><span class="cl">    path: /usr/local/bin/crun
+</span></span><span class="line"><span class="cl">    version: <span class="p">|</span>-
+</span></span><span class="line"><span class="cl">      crun version 1.7.0.0.0.26-52e3 <span class="p">|</span> :^<span class="o">)</span>
+</span></span><span class="line"><span class="cl">      commit: 52e303d3251c63c1a55d79cd1d45563d38ffb070
+</span></span><span class="line"><span class="cl">      rundir: /run/user/1000/crun
+</span></span><span class="line"><span class="cl">      spec: 1.0.0
+</span></span><span class="line"><span class="cl">      +SYSTEMD +SELINUX +APPARMOR +CAP +SECCOMP +EBPF +YAJL
+</span></span><span class="line"><span class="cl"><span class="c1"># ...</span>
+</span></span></code></pre></div><p>fuck.</p>
+<p>So it turned out that the thing I was trying to build,
+was already part of podman&hellip;</p>
+<p>Strange how when I <code>podman info</code>ed, I just got a wall of text;<br>
+and now I got the ociRuntime version&hellip;<br>
+I must&rsquo;ve touched something.</p>
+<p>..Also the help msg for the <strong>&ndash;runtime</strong> flag, had a very clear explaination of
+that feature I discovered&hellip;</p>
+<h3 id="how-it-works-in-the-end">How it works.. in the end</h3>
+<p>That *(Runtime).hostInfo() puts a whole lot of info on the screen,
+it must&rsquo;ve slipped me..<br>
+And I was too concentrated on finding things on the code,
+to document myself or pay attention to help msgs.</p>
+<p>Among the other things, hostInfo() called this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libpod/info.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Runtime</span><span class="p">)</span> <span class="nf">hostInfo</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">HostInfo</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">conmonInfo</span><span class="p">,</span> <span class="nx">ociruntimeInfo</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">defaultOCIRuntime</span><span class="p">.</span><span class="nf">RuntimeInfo</span><span class="p">()</span>
+</span></span></code></pre></div><p>common with a typo?<br>
+And I thought that that defaultOCIRuntime field was only a reference to what
+runtime podman defaults to, if there&rsquo;s nothing provided by the user..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libpod/oci.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// OCIRuntime is an implementation of an OCI runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// The OCI runtime implementation is expected to be a fairly thin wrapper around
+</span></span></span><span class="line"><span class="cl"><span class="c1">// the actual runtime, and is not expected to include things like state
+</span></span></span><span class="line"><span class="cl"><span class="c1">// management logic - e.g., we do not expect it to determine on its own that
+</span></span></span><span class="line"><span class="cl"><span class="c1">// calling &#39;UnpauseContainer()&#39; on a container that is not paused is an error.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// The code calling the OCIRuntime will manage this.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TODO: May want to move the conmon cleanup code here - it depends on
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Conmon being in use.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">OCIRuntime</span> <span class="kd">interface</span> <span class="p">{</span> <span class="c1">//nolint:interfacebloat
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// Name returns the name of the runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">Name</span><span class="p">()</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Path returns the path to the runtime executable.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">Path</span><span class="p">()</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// CreateContainer creates the container in the OCI runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// The returned int64 contains the microseconds needed to restore
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// the given container if it is a restore and if restoreOptions.PrintStats
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// is true. In all other cases the returned int64 is 0.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">CreateContainer</span><span class="p">(</span><span class="nx">ctr</span> <span class="o">*</span><span class="nx">Container</span><span class="p">,</span> <span class="nx">restoreOptions</span> <span class="o">*</span><span class="nx">ContainerCheckpointOptions</span><span class="p">)</span> <span class="p">(</span><span class="kt">int64</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// UpdateContainerStatus updates the status of the given container.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">UpdateContainerStatus</span><span class="p">(</span><span class="nx">ctr</span> <span class="o">*</span><span class="nx">Container</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// StartContainer starts the given container.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">StartContainer</span><span class="p">(</span><span class="nx">ctr</span> <span class="o">*</span><span class="nx">Container</span><span class="p">)</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// RuntimeInfo returns verbose information about the runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nf">RuntimeInfo</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">ConmonInfo</span><span class="p">,</span> <span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">OCIRuntimeInfo</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Then the implementation for RuntimeInfo() looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libpod/oci_conmon_common.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// RuntimeInfo provides information on the runtime.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">ConmonOCIRuntime</span><span class="p">)</span> <span class="nf">RuntimeInfo</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">ConmonInfo</span><span class="p">,</span> <span class="o">*</span><span class="nx">define</span><span class="p">.</span><span class="nx">OCIRuntimeInfo</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">runtimeVersion</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nf">getOCIRuntimeVersion</span><span class="p">()</span> <span class="c1">// !?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;getting version of OCI runtime %s: %w&#34;</span><span class="p">,</span> <span class="nx">r</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">conmonVersion</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nf">getConmonVersion</span><span class="p">()</span> <span class="c1">// ?!?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;getting conmon version: %w&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">conmon</span> <span class="o">:=</span> <span class="nx">define</span><span class="p">.</span><span class="nx">ConmonInfo</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Package</span><span class="p">:</span> <span class="nx">conmonPackage</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Path</span><span class="p">:</span>    <span class="nx">r</span><span class="p">.</span><span class="nx">conmonPath</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Version</span><span class="p">:</span> <span class="nx">conmonVersion</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ocirt</span> <span class="o">:=</span> <span class="nx">define</span><span class="p">.</span><span class="nx">OCIRuntimeInfo</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Name</span><span class="p">:</span>    <span class="nx">r</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Path</span><span class="p">:</span>    <span class="nx">r</span><span class="p">.</span><span class="nx">path</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Package</span><span class="p">:</span> <span class="nx">runtimePackage</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Version</span><span class="p">:</span> <span class="nx">runtimeVersion</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">conmon</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">ocirt</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>I&rsquo;m puzzled..<br>
+Why the OCIRuntimeVersion-thing is not called by the Runtime-thing?<br>
+There&rsquo;s another layer in the middle.. and I&rsquo;m starting to thing that conmon is not a typo&hellip;</p>
+<p>Those implementations speak for themselves:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// libpod/oci_conmon_common.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// getOCIRuntimeVersion returns a string representation of the OCI runtime&#39;s
+</span></span></span><span class="line"><span class="cl"><span class="c1">// version.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">ConmonOCIRuntime</span><span class="p">)</span> <span class="nf">getOCIRuntimeVersion</span><span class="p">()</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">output</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">utils</span><span class="p">.</span><span class="nf">ExecCmd</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">path</span><span class="p">,</span> <span class="s">&#34;--version&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">TrimSuffix</span><span class="p">(</span><span class="nx">output</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">),</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// getConmonVersion returns a string representation of the conmon version.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">ConmonOCIRuntime</span><span class="p">)</span> <span class="nf">getConmonVersion</span><span class="p">()</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">output</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">utils</span><span class="p">.</span><span class="nf">ExecCmd</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">conmonPath</span><span class="p">,</span> <span class="s">&#34;--version&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">TrimSuffix</span><span class="p">(</span><span class="nx">strings</span><span class="p">.</span><span class="nf">Replace</span><span class="p">(</span><span class="nx">output</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">,</span> <span class="s">&#34;, &#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s">&#34;\n&#34;</span><span class="p">),</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>So runtime&rsquo;s api is just cli? Interesting..<br>
+This does mean that everything we can do with a podman, we can do by hand as well.
+(reminds me a post of the &ldquo;demistifying containers&rdquo; series).</p>
+<p>That ExecCmd comes from the podman&rsquo;s utils pkg, and
+it looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// utils/utils.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ExecCmd executes a command with args and returns its output as a string along
+</span></span></span><span class="line"><span class="cl"><span class="c1">// with an error, if any.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">ExecCmd</span><span class="p">(</span><span class="nx">name</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">args</span> <span class="o">...</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">args</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">stdout</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Buffer</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">stderr</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Buffer</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Stdout</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">stdout</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Stderr</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">stderr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">err</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nf">Run</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;`%v %v` failed: %v %v (%v)&#34;</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Join</span><span class="p">(</span><span class="nx">args</span><span class="p">,</span> <span class="s">&#34; &#34;</span><span class="p">),</span> <span class="nx">stderr</span><span class="p">.</span><span class="nf">String</span><span class="p">(),</span> <span class="nx">stdout</span><span class="p">.</span><span class="nf">String</span><span class="p">(),</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">stdout</span><span class="p">.</span><span class="nf">String</span><span class="p">(),</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Just a wrapper around basic command executions facilities provided by golang stdlib.<br>
+[Podman is not that complex..] &ndash; q.e.d.</p>
+<p>The lowest level that podman reaches is that &ldquo;<strong>Conmon OCI runtime</strong>&quot;-wrapper/thing.<br>
+podman calls the system container runtime (crun/runc/..) using conmon, which is a container
+monitor facility, that does all the work of calling the container runtime itself,
+doing stuff with the output and sending all back to podman.<br>
+Podman is like a baby local orchestrator? like a baby kübernetes?</p>
+<h1 id="container-engine">Container Engine</h1>
+<pre tabindex="0"><code>Container Engine
+   |
+   | (like **podman**)
+   |
+   ------------------ Container Runtime Monitor
+                            |
+                            | (like **conmon**)
+                            |
+                      OCI Runtime (like **crun**)
+                         |It may be that just __runtime__ would
+                         |not be enough to describe what **crun** is..
+                         |In the podman codebase, crun is referred to as an
+                         |**OCI Runtime**;
+                         |In the podman codebase, **runtime** refers to the..
+                         |well.. time in which a container is.. run
+                         | ...
+                         |Or it may just be that they found it more
+                         |convenient that way with the naming...
+</code></pre><p>I could&rsquo;ve skipped this whole experience and still get out with all
+the information I needed, and more, only by watching the first 15mins of
+<a href="https://www.youtube.com/watch?v=kJnxeinEWyA&amp;t=1422s">this</a>.<br>
+someone commented the slides are
+<a href="https://www.slideshare.net/SaimSafder/podman-overview-and-internalspdf">here</a>&hellip;
+never used slides in my life I think..</p>
+<p>Having said so..<br>
+the whole experience would&rsquo;ve been much less thirst quenching.</p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/container_adventures">container_adventures</a></li>
+					
+					<li><a href="/tags/golang">golang</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

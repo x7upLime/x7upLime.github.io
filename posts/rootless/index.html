@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>notes on `Rootless` - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="mainly taking notes about different rootless-mechanism 
+implementations in buildah, podman and rootlesskit.
+The level is: what&#39;s rootless/how does it even work.
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="notes on `Rootless`" />
+<meta property="og:description" content="mainly taking notes about different rootless-mechanism 
+implementations in buildah, podman and rootlesskit.
+The level is: what&#39;s rootless/how does it even work.
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/rootless/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-02-06T11:44:12+02:00" />
+<meta property="article:modified_time" content="2023-02-10T18:54:22+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="notes on `Rootless`"/>
+<meta name="twitter:description" content="mainly taking notes about different rootless-mechanism 
+implementations in buildah, podman and rootlesskit.
+The level is: what&#39;s rootless/how does it even work.
+"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">notes on `Rootless`</h1>
+			<div class="meta">Posted on Feb 6, 2023</div>
+		</div>
+		
+
+		<section class="body">
+			<p>Rootless is one big deal in the container-new-world-order; was one of podman&rsquo;s
+most captivating features.. then everyone seem to have moved to(supported) rootless.<br>
+Community efforts were made to demistify the rootless mechanism,
+then everyone was adding support to rootless&hellip;
+But how does it work? Does it work only for containers?</p>
+<p>Of course it doesn&rsquo;t work only for containers.. the whole rootless-thingy relies on the namespaces
+mechanism, which is something that lives in the linux kernel(maybe other kernels as well.. I don&rsquo;t know.),
+so as long as your kernel supports it.. you can be rootless while doing whatever you want.</p>
+<p>The people that made the most efforts to explain/adopt rootless were the container-people, so most
+documentation come from that world, and if you decide you don&rsquo;t have nothing to do with containers,
+you might just lose that train.</p>
+<p>In regard of &ldquo;how does it work&rdquo;..<br>
+that&rsquo;s easy: you fork a generic child process, and while you do that, you tell your kernel that you want that process
+to lose some resources it shares with its parent process(effectively creating a new namespace), so that that child process
+is(to the degree you desire) isolated to the other processes in terms of access to resources.<br>
+It has been decided that, in that <strong>unshared</strong>(&lsquo;cause you know.. when forking, child shares parent&rsquo;s resources..) context, it is
+safe to let a process think it has root capabilities,
+i.e. Giving him actual root capabilities to play with the toys it&rsquo;s got (not many if isolated).</p>
+<p>A simple and very teachful example is give by Liz Rice in this fantastic talk:
+<a href="https://www.youtube.com/watch?v=jeTKgAEyhsA">Rootless Containers from Scratch</a>, and in tandem with her other
+work on containers from scratch in this <a href="https://github.com/lizrice/containers-from-scratch/blob/master/main.go">github repo</a>,
+you pretty much got everything you need to quickstart your adventure inside the container world.</p>
+<p>Of course you&rsquo;ve noticed that the structure of those go exmaples on how to work with rootless container,
+is rather mazy.. that&rsquo;s why everybody says that rootles setup requires some more complex logic&hellip;</p>
+<p>The obstacle is the way in which namespace-attach occurs.<br>
+The kernel offers a bunch of syscalls for userland to use, to interact with the namespaces-api:</p>
+<ul>
+<li><strong>clone</strong></li>
+<li><strong>fork</strong> <a href="https://www.schutzwerk.com/en/blog/linux-container-namespaces01-intro/">(perhaps only under glibc..?)</a></li>
+<li><strong>setns</strong></li>
+<li><strong>unshare</strong></li>
+<li><strong>ioctl</strong></li>
+</ul>
+<p>If wondering about &ldquo;how do I know..&rdquo;, check <a href="https://man7.org/linux/man-pages/man7/namespaces.7.html">this</a> out..
+it also comprehends this valuable information for our rootless-thingy:</p>
+<pre tabindex="0"><code>       Creation of new namespaces using clone(2) and unshare(2) in most
+       cases requires the CAP_SYS_ADMIN capability, since, in the new
+       namespace, the creator will have the power to change global
+       resources that are visible to other processes that are
+       subsequently created in, or join the namespace.  User namespaces
+       are the exception: since Linux 3.8, no privilege is required to
+       create a user namespace.
+</code></pre><p>This tells us two things:</p>
+<ol>
+<li>
+<p>changing one namespace does not guarantee isolation, and requires root permissions (only a slice of those
+actually: CAP_SYS_ADMIN&hellip; see manpages for capabilities(7)); although we&rsquo;re using those for containers,
+they&rsquo;re not at the root of the rootless mechanism.</p>
+</li>
+<li>
+<p>the process of creating a namespace (clone(2) and unshare(2)), makes the process that gets spawned inside
+the new namespace, to have full capabilities (be root).</p>
+</li>
+<li>
+<p>The usernamespace is <strong>THEExeption</strong>; that one is the root of rootless.</p>
+</li>
+</ol>
+<p>Actually three things..<br>
+Plus I also kept this reference to the <a href="https://docs.kernel.org/userspace-api/unshare.html">kernel doc about namespaces design</a>,
+which I probably read &rsquo;till 3)..</p>
+<p>..ah yeah.. in case you were wondering..<br>
+That&rsquo;s a full list of avail namespaces:</p>
+<ul>
+<li><strong>CLONE_NEWNS</strong></li>
+<li><strong>CLONE_NEWUTS</strong></li>
+<li><strong>CLONE_NEWIPC</strong></li>
+<li><strong>CLONE_NEWPID</strong></li>
+<li><strong>CLONE_NEWBET</strong></li>
+<li><strong>CLONE_NEWUSER</strong></li>
+<li><strong>CLONE_NEWCGROUP</strong></li>
+</ul>
+<p>But who cares..</p>
+<h2 id="the-workflow">the workflow</h2>
+<p>The idea I&rsquo;m making is the following:<br>
+I have a little cli project in mind, where one command should build container images.. then we&rsquo;ll see..<br>
+I wouldn&rsquo;t use <strong>setns</strong> here, because it implies the existence of the namespace we want to jump into, and I wouldn&rsquo;t do that
+for my hypothetical cli project.. who cares about having <strong>THAT</strong> namespace: we want to build a container image, and we want to do that
+in a single command run&hellip;<br>
+I think that a generic user namespace where
+our proc has root capabilities is enough&hellip;</p>
+<p>In order to accomplish isolation, we must first create a new user namespace, then (if necessary, but no really..)
+create other namespaces to isolate other resources.<br>
+We can do that either with <strong>clone</strong>/<strong>fork</strong>, or with <strong>unshare</strong>. <strong>ioctl</strong> is only used to <code>ls</code> namespaces/features.</p>
+<p>I&rsquo;m thinking that the <strong>clone</strong>/<strong>fork</strong> approach differs from the <strong>unshare</strong> approach in its application:<br>
+For the <strong>clone</strong>/<strong>fork</strong> to work, we must have a process to call.<br>
+For the <strong>unshare</strong> call, we can just do that at the top of our main and that&rsquo;s it..</p>
+<p>For a <strong>clone</strong>/<strong>fork</strong> approach on a hyphotetical <a href="https://github.com/spf13/cobra">cobra</a>-built cli application,
+we could implement the various commands, so that they could be called in a way like <code>$ myApp command -flag</code>,
+and do that from the rootcmd, flagging the necessary new namespaces&hellip;.</p>
+<p>I&rsquo;m not sure.. I&rsquo;d have to try it out&hellip;</p>
+<p>&hellip;</p>
+<p>Let&rsquo;s have a look at a couple of projects implementing this mechanism,<br>
+just to have a better idea on how people think this should work&hellip;</p>
+<h3 id="rootlesskit-implementation">rootlesskit implementation</h3>
+<p>Rootlesskit is a github project put together with the efforts of some recurring names
+of the container world.. some of those are also responsible for <a href="https://rootlesscontaine.rs/">rootless containers</a>.<br>
+It was also mentioned by Liz Rice on one of her containers-from-scratch works I think&hellip;</p>
+<p>We&rsquo;re looking at <a href="https://github.com/rootless-containers/rootlesskit">this repo</a> to be precise;<br>
+as the readme states, this kit is used across a bunch of major container projects, including podman/moby,
+even tho podman(at least) only uses rootlesskit to setup some port-forwarding mechanism.. and I&rsquo;m mainly interested
+in the actual namespace jump.</p>
+<p>k3s uses rootlesskit that way.. also the rootlesskit repo itself makes an example available in cmd/rootlesskit/.<br>
+We might be able to learn something about the namespace jump, cross-checking between the two repos.</p>
+<p>We can see from main.go that cmd/rootlesskit doesn&rsquo;t use the cobra lib for the cli(makes sense..).
+That shouldn&rsquo;t be a problem..</p>
+<p>Having a quick look at the packages in this module.. I can see a child pkg, which I can
+connect to the idea of our process creating a child in a new namespace&hellip; Let&rsquo;s have a look:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ go doc github.com/rootless-containers/rootlesskit/pkg/child
+</span></span><span class="line"><span class="cl">package child // import <span class="s2">&#34;github.com/rootless-containers/rootlesskit/pkg/child&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">func Child<span class="o">(</span>opt Opt<span class="o">)</span> error
+</span></span><span class="line"><span class="cl"><span class="nb">type</span> Opt struct<span class="o">{</span> ... <span class="o">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ go doc github.com/rootless-containers/rootlesskit/pkg/child.Opt
+</span></span><span class="line"><span class="cl">package child // import <span class="s2">&#34;github.com/rootless-containers/rootlesskit/pkg/child&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">type</span> Opt struct <span class="o">{</span>
+</span></span><span class="line"><span class="cl">	PipeFDEnvKey    string              // needs to be <span class="nb">set</span>
+</span></span><span class="line"><span class="cl">	TargetCmd       <span class="o">[]</span>string            // needs to be <span class="nb">set</span>
+</span></span><span class="line"><span class="cl">	NetworkDriver   network.ChildDriver // nil <span class="k">for</span> HostNetwork
+</span></span><span class="line"><span class="cl">	CopyUpDriver    copyup.ChildDriver  // cannot be nil <span class="k">if</span> len<span class="o">(</span>CopyUpDirs<span class="o">)</span> !<span class="o">=</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">	CopyUpDirs      <span class="o">[]</span>string
+</span></span><span class="line"><span class="cl">	PortDriver      port.ChildDriver
+</span></span><span class="line"><span class="cl">	MountProcfs     bool   // needs to be <span class="nb">set</span> <span class="k">if</span> <span class="o">(</span>and only <span class="k">if</span><span class="o">)</span> parent.Opt.CreatePIDNS is <span class="nb">set</span>
+</span></span><span class="line"><span class="cl">	Propagation     string // mount propagation <span class="nb">type</span>
+</span></span><span class="line"><span class="cl">	Reaper          bool
+</span></span><span class="line"><span class="cl">	EvacuateCgroup2 bool // needs to correspond to parent.Opt.EvacuateCgroup2 is <span class="nb">set</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span></code></pre></div><p>..Well that shorten&rsquo;s our research.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/child/child.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Child</span><span class="p">(</span><span class="nx">opt</span> <span class="nx">Opt</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;pipe FD env key is not set&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFDStr</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">pipeFDStr</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;%s is not set&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFD</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">strconv</span><span class="p">.</span><span class="nf">Atoi</span><span class="p">(</span><span class="nx">pipeFDStr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;unexpected fd value: %s: %w&#34;</span><span class="p">,</span> <span class="nx">pipeFDStr</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// then a bunch of setups..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// a createCmd() call using what was passed inside opt arg..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// and ultimately a command exec.. possibly inside a new namespace
+</span></span></span></code></pre></div><p>What&rsquo;s that PipeFD anyway?<br>
+If we don&rsquo;t have it we error out of the function.. it must be important..<br>
+It looks like an env var.. and the os.Getenv() line confirms it.</p>
+<p>Inside the cmd/rootlesskit/ for the rootlesskit executable, we can see that there is a const
+reference for that:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="kd">const</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">pipeFDEnvKey</span>     <span class="p">=</span> <span class="s">&#34;_ROOTLESSKIT_PIPEFD_UNDOCUMENTED&#34;</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">stateDirEnvKey</span>   <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_STATE_DIR&#34;</span>   <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">parentEUIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_PARENT_EUID&#34;</span> <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">parentEGIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_PARENT_EGID&#34;</span> <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="p">)</span>
+</span></span></code></pre></div><p>Those are env vars.. the one that&rsquo;s so important is also quite clearly left undocumented.. very interesting&hellip;</p>
+<p>I&rsquo;d try to compile that, exec it, and see if we can get through&hellip;<br>
+one <code>make</code> and <code>make install</code> after:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">andrew@leather-jacket:~/go/src/wspace-rootless/rootlesskit$ rootlesskit /bin/bash
+</span></span><span class="line"><span class="cl">root@leather-jacket:~/go/src/wspace-rootless/rootlesskit# ...
+</span></span></code></pre></div><p>it works&hellip; How?!<br>
+Do we have that thing set?</p>
+<pre tabindex="0"><code># echo $_ROOTLESSKIT_PIPEFD_UNDOCUMENTED
+</code></pre><p>we don&rsquo;t&hellip;</p>
+<pre tabindex="0"><code># echo $ROOTLESSKIT_STATE_DIR
+/tmp/rootlesskit3719646074
+</code></pre><p>but we have something else set&hellip; What is going on..?</p>
+<p>If we&rsquo;re able to obtain that root shell, something must be setting that envvar somewhere.<br>
+Let&rsquo;s peek at the code for cmd/rootlesskit/</p>
+<p>I can see that the logic has place inside those <code>app.Action</code>, <code>app.Before</code> funcs..<br>
+What about adding a couple of printfs to see what&rsquo;s going on..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// immediately after const definitions:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;at start..\n_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is set to %s\n\n&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">app</span><span class="p">.</span><span class="nx">Before</span> <span class="p">=</span> <span class="kd">func</span><span class="p">(</span><span class="nx">context</span> <span class="o">*</span><span class="nx">cli</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;inside app.Before..\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is set to %s\n\n&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">debug</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">logrus</span><span class="p">.</span><span class="nf">SetLevel</span><span class="p">(</span><span class="nx">logrus</span><span class="p">.</span><span class="nx">DebugLevel</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">app</span><span class="p">.</span><span class="nx">Action</span> <span class="p">=</span> <span class="kd">func</span><span class="p">(</span><span class="nx">clicontext</span> <span class="o">*</span><span class="nx">cli</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;inside app.Action..\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is set to %s\n\n&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">NArg</span><span class="p">()</span> <span class="p">&lt;</span> <span class="mi">1</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;no command specified&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">iAmChild</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;I am already child:&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is set to %s\n\n&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="nx">childOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createChildOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Args</span><span class="p">().</span><span class="nf">Slice</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">child</span><span class="p">.</span><span class="nf">Child</span><span class="p">(</span><span class="nx">childOpt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">parentOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createParentOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">stateDirEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">parentEUIDEnvKey</span><span class="p">,</span> <span class="nx">parentEGIDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">parent</span><span class="p">.</span><span class="nf">Parent</span><span class="p">(</span><span class="nx">parentOpt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>Recompiled again and run.. this time I got some fatal errors:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">WARN<span class="o">[</span>0000<span class="o">]</span> Running RootlessKit as the root user is unsupported. 
+</span></span><span class="line"><span class="cl"><span class="o">[</span>rootlesskit:parent<span class="o">]</span> error: failed to setup UID/GID map: failed to compute uid/gid map: No subuid ranges found <span class="k">for</span> user <span class="m">0</span> <span class="o">(</span><span class="s2">&#34;root&#34;</span><span class="o">)</span>
+</span></span></code></pre></div><p>Luckily they were pretty talkative: I&rsquo;ve run rootlesskit inside the root shell from the namespace
+created in the previous run of rootlesskit&hellip;<br>
+The actual result of a healthy run is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">andrew@leather-jacket:~/go/src/wspace-rootless/rootlesskit$ rootlesskit /bin/bash
+</span></span><span class="line"><span class="cl">at start..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Before..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Action..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">at start..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Before..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Action..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">I am already child:_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">at start..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Before..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">inside app.Action..
+</span></span><span class="line"><span class="cl">_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">I am already child:_ROOTLESSKIT_PIPEFD_UNDOCUMENTED is <span class="nb">set</span> to <span class="m">3</span>
+</span></span></code></pre></div><p>I&rsquo;m not sure what&rsquo;s going on&hellip;<br>
+But this reminds me of the logic from Liz Rice&rsquo;s <a href="https://github.com/lizrice/containers-from-scratch">containers-from-scratch</a>.</p>
+<p>One thing is for sure: We didn&rsquo;t have that env var before; something&rsquo;s setting it inside the application.</p>
+<p>Now.. I didn&rsquo;t read the code for <code>app.Action</code> that carefully. I could&rsquo;ve skipped this trial step,
+by taking into consideration that there was another pkg, other than child that was called.. and that was parent.</p>
+<p>The have the same(more or less..) Opt structure on which the only exported function
+(Child for child, and Parent for parent) depends.. they do complementary things;<br>
+The code in app.Action calls parent before child:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// if that infamous env var is set.. it means we&#39;re already child!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">iAmChild</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="c1">/// later on..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="c1">// if we&#39;re already child, we do childish calls and return
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">iAmChild</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">childOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createChildOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Args</span><span class="p">().</span><span class="nf">Slice</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">child</span><span class="p">.</span><span class="nf">Child</span><span class="p">(</span><span class="nx">childOpt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">	<span class="c1">// if we&#39;re not child yet, we do parent stuff and return
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">parentOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createParentOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">stateDirEnvKey</span><span class="p">,</span>	<span class="nx">parentEUIDEnvKey</span><span class="p">,</span> <span class="nx">parentEGIDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">parent</span><span class="p">.</span><span class="nf">Parent</span><span class="p">(</span><span class="nx">parentOpt</span><span class="p">)</span>
+</span></span></code></pre></div><p>Feel like we&rsquo;re getting closer.
+Let&rsquo;s peek at parent&rsquo;s code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/parent/parent.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Parent</span><span class="p">(</span><span class="nx">opt</span> <span class="nx">Opt</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// we call something that checks that there is an actual
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// env key to look for, then...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Env</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nf">Environ</span><span class="p">(),</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="o">+</span><span class="s">&#34;=3&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>3!?<br>
+perhaps the immediately free after stdin/out/err? that surpasses me..</p>
+<p>Let&rsquo;s have a look on how this mechanism is orchestrated inside k3s.</p>
+<p>Just check the output of <code>git grep -in &quot;rootless&quot;</code> to see that this localpkg/externalpkg/string/whatever
+is contained in a bunch of places.. from there, a little lsp code navigation enables us to come to</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless.go @ k3s
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Rootless</span><span class="p">(</span><span class="nx">stateDir</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">enableIPv6</span> <span class="kt">bool</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">hasFD</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFD</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span>
+</span></span></code></pre></div><p>same infamous pipeFD.. I&rsquo;m sure this time it&rsquo;ll be handled in a more understandable way:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFD</span>             <span class="p">=</span> <span class="s">&#34;_K3S_ROOTLESS_FD&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">childEnv</span>           <span class="p">=</span> <span class="s">&#34;_K3S_ROOTLESS_SOCK&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">evacuateCgroup2Env</span> <span class="p">=</span> <span class="s">&#34;_K3S_ROOTLESS_EVACUATE_CGROUP2&#34;</span> <span class="c1">// boolean
+</span></span></span></code></pre></div><p>oh.. Much better.</p>
+<p>This time there are more things going on.. but in the end they&rsquo;re the same calls to:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless.go @ k3s
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">parentOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createParentOpt</span><span class="p">(</span><span class="nx">driver</span><span class="p">,</span> <span class="nx">rootlessDir</span><span class="p">,</span> <span class="nx">enableIPv6</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">parent</span><span class="p">.</span><span class="nf">Parent</span><span class="p">(</span><span class="o">*</span><span class="nx">parentOpt</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// and
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Identical to the one in cmd/rootlesskit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">hasFD</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">logrus</span><span class="p">.</span><span class="nf">Debug</span><span class="p">(</span><span class="s">&#34;Running rootless child&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">childOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createChildOpt</span><span class="p">(</span><span class="nx">driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">logrus</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">child</span><span class="p">.</span><span class="nf">Child</span><span class="p">(</span><span class="o">*</span><span class="nx">childOpt</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">logrus</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;child died: %v&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>Is it really that simple.. just let the child/parent couple handle the quantic jump?<br>
+We should be able to implement our own rootless command:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// just open a main.go in a new go.mod 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kn">package</span> <span class="nx">main</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;fmt&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;os&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/rootless-containers/rootlesskit/pkg/child&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/rootless-containers/rootlesskit/pkg/parent&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">const</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFDEnvKey</span>     <span class="p">=</span> <span class="s">&#34;SOMEGENERICNOTPRETENTIOUSPROGRAMNAME_PIPEFD&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">stateDirEnvKey</span>   <span class="p">=</span> <span class="s">&#34;SOMEGENERICNOTPRETENTIOUSPROGRAMNAME_STATE_DIR&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">parentEUIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;SOMEGENERICNOTPRETENTIOUSPROGRAMNAME_PARENT_EUID&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">parentEGIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;SOMEGENERICNOTPRETENTIOUSPROGRAMNAME_PARENT_EGID&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// child
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">propagation</span>      <span class="p">=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">mountprocfs</span>      <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">evatuatecgroupv2</span> <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// parent
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">createpidns</span>       <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">createcgroupns</span>    <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">createutsns</span>       <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">createipcns</span>       <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">evacutatecgroupv2</span> <span class="p">=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">subidsource</span>       <span class="p">=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">err</span> <span class="o">:=</span> <span class="nf">JumpNamespace</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">die</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;while making the jump&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">JumpNamespace</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">weChild</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">weChild</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">copts</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">calibrateChild</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">die</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;while generating child opts: %v&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">child</span><span class="p">.</span><span class="nf">Child</span><span class="p">(</span><span class="o">*</span><span class="nx">copts</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">popts</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">calibrateParent</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">die</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;while generating parent opts: %v&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">parent</span><span class="p">.</span><span class="nf">Parent</span><span class="p">(</span><span class="o">*</span><span class="nx">popts</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">calibrateChild</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">child</span><span class="p">.</span><span class="nx">Opt</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">child</span><span class="p">.</span><span class="nx">Opt</span><span class="p">{}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">TargetCmd</span> <span class="p">=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;/bin/bash&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span> <span class="p">=</span> <span class="nx">pipeFDEnvKey</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">MountProcfs</span> <span class="p">=</span> <span class="nx">mountprocfs</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">Propagation</span> <span class="p">=</span> <span class="nx">propagation</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">EvacuateCgroup2</span> <span class="p">=</span> <span class="nx">evatuatecgroupv2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">o</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">calibrateParent</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">parent</span><span class="p">.</span><span class="nx">Opt</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">parent</span><span class="p">.</span><span class="nx">Opt</span><span class="p">{}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span> <span class="p">=</span> <span class="nx">pipeFDEnvKey</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">Propagation</span> <span class="p">=</span> <span class="nx">propagation</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">StateDirEnvKey</span> <span class="p">=</span> <span class="nx">stateDirEnvKey</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">ParentEGIDEnvKey</span> <span class="p">=</span> <span class="nx">parentEGIDEnvKey</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">ParentEUIDEnvKey</span> <span class="p">=</span> <span class="nx">parentEUIDEnvKey</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">Propagation</span> <span class="p">=</span> <span class="nx">propagation</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">EvacuateCgroup2</span> <span class="p">=</span> <span class="nx">evacutatecgroupv2</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">SubidSource</span> <span class="p">=</span> <span class="nx">subidsource</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">o</span><span class="p">.</span><span class="nx">Propagation</span> <span class="p">=</span> <span class="nx">propagation</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">o</span><span class="p">.</span><span class="nx">StateDir</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="kd">var</span> <span class="nx">err</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">o</span><span class="p">.</span><span class="nx">StateDir</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">MkdirTemp</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">,</span> <span class="s">&#34;rootlesskit&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">o</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;creating a state directory: %w&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">o</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">die</span><span class="p">(</span><span class="nx">err</span> <span class="kt">error</span><span class="p">,</span> <span class="nx">msg</span> <span class="kt">string</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="nx">msg</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This piece of code should be anough.. but I&rsquo;m getting errors:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="k">while</span> making the jump%!<span class="o">(</span>EXTRA *fmt.wrapError<span class="o">=</span>failed to mount cgroup2 on /sys/fs/cgroup: operation not permitted<span class="o">)</span>
+</span></span></code></pre></div><blockquote>
+<p>I know that the code highlight is wrong&hellip;<br>
+still better than the alternative (dark gray :/)</p>
+</blockquote>
+<p>Clear.. I&rsquo;ve passed parameters I didn&rsquo;t know how to handle.<br>
+What should I pass instead?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go @ rootlesskit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createParentOpt</span><span class="p">(</span><span class="nx">clicontext</span> <span class="o">*</span><span class="nx">cli</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">stateDirEnvKey</span><span class="p">,</span> <span class="nx">parentEUIDEnvKey</span><span class="p">,</span> <span class="nx">parentEGIDEnvKey</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="nx">parent</span><span class="p">.</span><span class="nx">Opt</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">err</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">opt</span> <span class="o">:=</span> <span class="nx">parent</span><span class="p">.</span><span class="nx">Opt</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">PipeFDEnvKey</span><span class="p">:</span>     <span class="nx">pipeFDEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">StateDirEnvKey</span><span class="p">:</span>   <span class="nx">stateDirEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">CreatePIDNS</span><span class="p">:</span>      <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Bool</span><span class="p">(</span><span class="s">&#34;pidns&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">CreateCgroupNS</span><span class="p">:</span>   <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Bool</span><span class="p">(</span><span class="s">&#34;cgroupns&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">CreateUTSNS</span><span class="p">:</span>      <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Bool</span><span class="p">(</span><span class="s">&#34;utsns&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">CreateIPCNS</span><span class="p">:</span>      <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Bool</span><span class="p">(</span><span class="s">&#34;ipcns&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ParentEUIDEnvKey</span><span class="p">:</span> <span class="nx">parentEUIDEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ParentEGIDEnvKey</span><span class="p">:</span> <span class="nx">parentEGIDEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Propagation</span><span class="p">:</span>      <span class="nx">clicontext</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;propagation&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">EvacuateCgroup2</span><span class="p">:</span>  <span class="nx">clicontext</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;evacuate-cgroup2&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">SubidSource</span><span class="p">:</span>      <span class="nx">parent</span><span class="p">.</span><span class="nf">SubidSource</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;subid-source&#34;</span><span class="p">)),</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;[*] parent.Opt:&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.PipeFDEnvKey&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.StateDirEnvKey&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">StateDirEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.CreatePIDNS&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">CreatePIDNS</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.CreateCgroupNS&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">CreateCgroupNS</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.CreateUTSNS&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">CreateUTSNS</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.CreateIPCNS&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">CreateIPCNS</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.ParentEUIDEnvKey&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">ParentEUIDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.ParentEGIDEnvKey&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">ParentEGIDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.EvacuateCgroup2&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">EvacuateCgroup2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.SubidSource&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">SubidSource</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.Propagation&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">Propagation</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go @ rootlesskit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createChildOpt</span><span class="p">(</span><span class="nx">clicontext</span> <span class="o">*</span><span class="nx">cli</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">targetCmd</span> <span class="p">[]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="nx">child</span><span class="p">.</span><span class="nx">Opt</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pidns</span> <span class="o">:=</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Bool</span><span class="p">(</span><span class="s">&#34;pidns&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">opt</span> <span class="o">:=</span> <span class="nx">child</span><span class="p">.</span><span class="nx">Opt</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">PipeFDEnvKey</span><span class="p">:</span>    <span class="nx">pipeFDEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">TargetCmd</span><span class="p">:</span>       <span class="nx">targetCmd</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">MountProcfs</span><span class="p">:</span>     <span class="nx">pidns</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Propagation</span><span class="p">:</span>     <span class="nx">clicontext</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;propagation&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">EvacuateCgroup2</span><span class="p">:</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;evacuate-cgroup2&#34;</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;[*] child.Opt:\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.PipeFDEnvKey&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.TargetCmd&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">TargetCmd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.MountProcfs&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">MountProcfs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.Propagation&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">Propagation</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;\t- %s:\t%v\n&#34;</span><span class="p">,</span> <span class="s">&#34;opt.EvacuateCgroup2&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">EvacuateCgroup2</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rootlesskit /bin/bash
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>*<span class="o">]</span> parent.Opt:	- opt.PipeFDEnvKey:	_ROOTLESSKIT_PIPEFD_UNDOCUMENTED
+</span></span><span class="line"><span class="cl">	- opt.StateDirEnvKey:     ROOTLESSKIT_STATE_DIR
+</span></span><span class="line"><span class="cl">	- opt.CreatePIDNS:        <span class="nb">false</span>
+</span></span><span class="line"><span class="cl">	- opt.CreateCgroupNS:     <span class="nb">false</span>
+</span></span><span class="line"><span class="cl">	- opt.CreateUTSNS:        <span class="nb">false</span>
+</span></span><span class="line"><span class="cl">	- opt.CreateIPCNS:        <span class="nb">false</span>
+</span></span><span class="line"><span class="cl">	- opt.ParentEUIDEnvKey:   ROOTLESSKIT_PARENT_EUID
+</span></span><span class="line"><span class="cl">	- opt.ParentEGIDEnvKey:   ROOTLESSKIT_PARENT_EGID
+</span></span><span class="line"><span class="cl">	- opt.EvacuateCgroup2:	
+</span></span><span class="line"><span class="cl">	- opt.SubidSource:        auto
+</span></span><span class="line"><span class="cl">	- opt.Propagation:        rprivate
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>*<span class="o">]</span> child.Opt:
+</span></span><span class="line"><span class="cl">    - opt.PipeFDEnvKey:       _ROOTLESSKIT_PIPEFD_UNDOCUMENTED
+</span></span><span class="line"><span class="cl">    - opt.TargetCmd:          <span class="o">[</span>/bin/bash<span class="o">]</span>
+</span></span><span class="line"><span class="cl">    - opt.MountProcfs:        <span class="nb">false</span>
+</span></span><span class="line"><span class="cl">    - opt.Propagation:        rprivate
+</span></span><span class="line"><span class="cl">    - opt.EvacuateCgroup2:    <span class="nb">false</span>
+</span></span></code></pre></div><p>There we go..</p>
+<p>So now I should only modify my constants accordingly and&hellip;.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">andrew@leather-jacket:~/go/src/wspace-rootless/test-rootless$ go run main.go 
+</span></span><span class="line"><span class="cl">root@leather-jacket:~/go/src/wspace-rootless/test-rootless# 
+</span></span></code></pre></div><p>yep.</p>
+<p>The &ldquo;/bin/bash&rdquo; reference for the child process is hardcoded,
+but we&rsquo;d need to add only some command parsing logic,
+to be able to have something working.. real-world-like.</p>
+<p>&hellip;</p>
+<p>WTF is that PID-thing anyway!?</p>
+<h3 id="podman-implementation">podman implementation</h3>
+<p>Here&rsquo;s wtf it is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/system.go @ podman
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="o">*</span><span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">SetupRootless</span><span class="p">(</span><span class="nx">_</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">noMoveProcess</span> <span class="kt">bool</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pausePidPath</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">util</span><span class="p">.</span><span class="nf">GetRootlessPauseProcessPidPathGivenDir</span><span class="p">(</span><span class="nx">tmpDir</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// pkg/util/utils_supported.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// GetRootlessPauseProcessPidPathGivenDir returns the path to the file that
+</span></span></span><span class="line"><span class="cl"><span class="c1">// holds the PID of the pause process, given the location of Libpod&#39;s temporary
+</span></span></span><span class="line"><span class="cl"><span class="c1">// files.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">GetRootlessPauseProcessPidPathGivenDir</span><span class="p">(</span><span class="nx">libpodTmpDir</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">libpodTmpDir</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;must provide non-empty temporary directory&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">filepath</span><span class="p">.</span><span class="nf">Join</span><span class="p">(</span><span class="nx">libpodTmpDir</span><span class="p">,</span> <span class="s">&#34;pause.pid&#34;</span><span class="p">),</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>It must be him!</p>
+<p>It then later tries to join that pid&rsquo;s namespace:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/domain/infra/abi/system.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">ic</span> <span class="o">*</span><span class="nx">ContainerEngine</span><span class="p">)</span> <span class="nf">SetupRootless</span><span class="p">(</span><span class="nx">_</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">noMoveProcess</span> <span class="kt">bool</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">became</span><span class="p">,</span> <span class="nx">ret</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">rootless</span><span class="p">.</span><span class="nf">TryJoinPauseProcess</span><span class="p">(</span><span class="nx">pausePidPath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TryJoinPauseProcess attempts to join the namespaces of the pause PID via
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TryJoinFromFilePaths.  If joining fails, it attempts to delete the specified
+</span></span></span><span class="line"><span class="cl"><span class="c1">// file.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">TryJoinPauseProcess</span><span class="p">(</span><span class="nx">pausePidPath</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">became</span><span class="p">,</span> <span class="nx">ret</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">TryJoinFromFilePaths</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">,</span> <span class="kc">false</span><span class="p">,</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="nx">pausePidPath</span><span class="p">})</span>
+</span></span></code></pre></div><p>:) now more pieces of the puzzle are coming together!<br>
+Luckily those mechanisms are documented in podman:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless_linux.go 
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TryJoinFromFilePaths attempts to join the namespaces of the pid files in paths.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// This is useful when there are already running containers and we
+</span></span></span><span class="line"><span class="cl"><span class="c1">// don&#39;t have a pause process yet.  We can use the paths to the conmon
+</span></span></span><span class="line"><span class="cl"><span class="c1">// processes to attempt joining their namespaces.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// If needNewNamespace is set, the file is read from a temporary user
+</span></span></span><span class="line"><span class="cl"><span class="c1">// namespace, this is useful for containers that are running with a
+</span></span></span><span class="line"><span class="cl"><span class="c1">// different uidmap and the unprivileged user has no way to read the
+</span></span></span><span class="line"><span class="cl"><span class="c1">// file owned by the root in the container.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">TryJoinFromFilePaths</span><span class="p">(</span><span class="nx">pausePidPath</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">needNewNamespace</span> <span class="kt">bool</span><span class="p">,</span> <span class="nx">paths</span> <span class="p">[]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// + tries to become root in the new userNamespace
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless_linux.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// joinUserAndMountNS re-exec podman in a new userNS and join the user and mount
+</span></span></span><span class="line"><span class="cl"><span class="c1">// namespace of the specified PID without looking up its parent.  Useful to join directly
+</span></span></span><span class="line"><span class="cl"><span class="c1">// the conmon process.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">joinUserAndMountNS</span><span class="p">(</span><span class="nx">pid</span> <span class="kt">uint</span><span class="p">,</span> <span class="nx">pausePid</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span></code></pre></div><blockquote>
+<h4 id="thought-process">thought process</h4>
+<p>Ok.. let me clarify what happened here:<br>
+I was convinced that the rootlesskit pipefd was a mechanism similar to that described by the podman code above&hellip;<br>
+It&rsquo;s not!</p>
+<blockquote>
+<p>:) now more pieces of the puzzle are coming together!</p>
+</blockquote>
+<p>I felt like everything was starting to make sense..</p>
+<p>In my mind I was thinking: &ldquo;something to keep track of the unshared process, across different calls&rdquo;.<br>
+Now for podman, the code above could describe something like that,<br>
+but our rootlesskit it was something entirely different.</p>
+<p>Inside rootlesskit, that pipefd is a mechanism of parent/child communication, without exchanging
+data in weird ways across function calls(possibly.. dunno what the actual limit is..).<br>
+This example should clarify:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go @ rootlesskit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">const</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">pipeFDEnvKey</span>     <span class="p">=</span> <span class="s">&#34;_ROOTLESSKIT_PIPEFD_UNDOCUMENTED&#34;</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">stateDirEnvKey</span>   <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_STATE_DIR&#34;</span>   <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">parentEUIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_PARENT_EUID&#34;</span> <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">parentEGIDEnvKey</span> <span class="p">=</span> <span class="s">&#34;ROOTLESSKIT_PARENT_EGID&#34;</span> <span class="c1">// documented
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Add this line here:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="o">+</span>	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;Starting rootlesskit - _ROOTLESSKIT_PIPEFD_UNDOCUMENTED ==  %s\n&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// follow the pipe-Rabbit:
+</span></span></span><span class="line"><span class="cl"><span class="c1">// we start by checking if the envKey is defined,
+</span></span></span><span class="line"><span class="cl"><span class="c1">// then open that file descriptor and read from it...
+</span></span></span><span class="line"><span class="cl"><span class="c1">// It then becomes a message
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/child/child.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Child</span><span class="p">(</span><span class="nx">opt</span> <span class="nx">Opt</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;pipe FD env key is not set&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFDStr</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">pipeFDStr</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;%s is not set&#34;</span><span class="p">,</span> <span class="nx">opt</span><span class="p">.</span><span class="nx">PipeFDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeFD</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">strconv</span><span class="p">.</span><span class="nf">Atoi</span><span class="p">(</span><span class="nx">pipeFDStr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;unexpected fd value: %s: %w&#34;</span><span class="p">,</span> <span class="nx">pipeFDStr</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">pipeR</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">NewFile</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">pipeFD</span><span class="p">),</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">msg</span> <span class="nx">common</span><span class="p">.</span><span class="nx">Message</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">msgutil</span><span class="p">.</span><span class="nf">UnmarshalFromReader</span><span class="p">(</span><span class="nx">pipeR</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">msg</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;parsing message from fd %d: %w&#34;</span><span class="p">,</span> <span class="nx">pipeFD</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Here change from logrus.Debugf to logrus.Printf	
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="o">-</span>	<span class="nx">logrus</span><span class="p">.</span><span class="nf">Debugf</span><span class="p">(</span><span class="s">&#34;child: got msg from parent: %+v&#34;</span><span class="p">,</span> <span class="nx">msg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="nx">logrus</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;child: got msg from parent: %+v&#34;</span><span class="p">,</span> <span class="nx">msg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Or just set verbosity for logrus at the beginning of main and then grep for it... whatever
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">msg</span><span class="p">.</span><span class="nx">Stage</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// the parent has configured the child&#39;s uid_map and gid_map, but the child doesn&#39;t have caps here.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// so we exec the child again to obtain caps.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// PID should be kept.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">syscall</span><span class="p">.</span><span class="nf">Exec</span><span class="p">(</span><span class="s">&#34;/proc/self/exe&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Environ</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nb">panic</span><span class="p">(</span><span class="s">&#34;should not reach here&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">msg</span><span class="p">.</span><span class="nx">Stage</span> <span class="o">!=</span> <span class="mi">1</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;expected stage 1, got stage %d&#34;</span><span class="p">,</span> <span class="nx">msg</span><span class="p">.</span><span class="nx">Stage</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl"><span class="c1">///// And the parent.Parent() call, opens a pipe,
+</span></span></span><span class="line"><span class="cl"><span class="c1">///// that gets that 3 fd in the child process somehow...
+</span></span></span></code></pre></div><blockquote>
+<p>3 Because it is the first inherited file after stdio/out/err&hellip;<br>
+inherited here: <code>cmd.ExtraFiles = []*os.File{pipeR}</code><br>
+also 3 is hardcoded because of the simple nature of this mechanism</p>
+</blockquote>
+<p>That comment near that <code>if msg.Stage == 0 {</code> line, is describing what we&rsquo;ge gonna see after compile/run:</p>
+<pre tabindex="0"><code>Starting rootlesskit - _ROOTLESSKIT_PIPEFD_UNDOCUMENTED ==  
+Starting rootlesskit - _ROOTLESSKIT_PIPEFD_UNDOCUMENTED ==  3
+INFO[0000] child: got msg from parent: {Stage:0 Message0:{} Message1:{StateDir: Network:{Dev: IP: Netmask:0 Gateway: DNS: MTU:0 Opaque:map[]} Port:{Opaque:map[]}}} 
+Starting rootlesskit - _ROOTLESSKIT_PIPEFD_UNDOCUMENTED ==  3
+INFO[0000] child: got msg from parent: {Stage:1 Message0:{} Message1:{StateDir:/tmp/rootlesskit1346310653 Network:{Dev: IP: Netmask:0 Gateway: DNS: MTU:0 Opaque:map[]} Port:{Opaque:map[]}}} 
+</code></pre><p>[WhatHappened] The program started, and realized that it wasn&rsquo;t already child, so it executed parent.Parent():</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">iAmChild</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">iAmChild</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  		<span class="c1">// we didn&#39;t enter here
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">parentOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createParentOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">stateDirEnvKey</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">parentEUIDEnvKey</span><span class="p">,</span> <span class="nx">parentEGIDEnvKey</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">parent</span><span class="p">.</span><span class="nf">Parent</span><span class="p">(</span><span class="nx">parentOpt</span><span class="p">)</span>
+</span></span></code></pre></div><p>Then parent.Parent() did its setup magic, and reexeced the program..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/parent/parent.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nf">Start</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;failed to start the child: %w&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>This time it realized it was already child, and took a different path:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// cmd/rootlesskit/main.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">iAmChild</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="nx">pipeFDEnvKey</span><span class="p">)</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span>  <span class="c1">// set by parent.Parent to &#39;3&#39;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">iAmChild</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">childOpt</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createChildOpt</span><span class="p">(</span><span class="nx">clicontext</span><span class="p">,</span> <span class="nx">pipeFDEnvKey</span><span class="p">,</span> <span class="nx">clicontext</span><span class="p">.</span><span class="nf">Args</span><span class="p">().</span><span class="nf">Slice</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">			<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">child</span><span class="p">.</span><span class="nf">Child</span><span class="p">(</span><span class="nx">childOpt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span></code></pre></div><p>It then received some message that told it to reexec, to use the uid_map/gid_map the parent configured for it..<br>
+That&rsquo;s why we see a main() start 3 times:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/child/child.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">pipeR</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">NewFile</span><span class="p">(</span><span class="nb">uintptr</span><span class="p">(</span><span class="nx">pipeFD</span><span class="p">),</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">msg</span> <span class="nx">common</span><span class="p">.</span><span class="nx">Message</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">msgutil</span><span class="p">.</span><span class="nf">UnmarshalFromReader</span><span class="p">(</span><span class="nx">pipeR</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">msg</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;parsing message from fd %d: %w&#34;</span><span class="p">,</span> <span class="nx">pipeFD</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">logrus</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;child: got msg from parent: %+v&#34;</span><span class="p">,</span> <span class="nx">msg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">msg</span><span class="p">.</span><span class="nx">Stage</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// the parent has configured the child&#39;s uid_map and gid_map, but the child doesn&#39;t have caps here.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// so we exec the child again to obtain caps.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// PID should be kept.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">syscall</span><span class="p">.</span><span class="nf">Exec</span><span class="p">(</span><span class="s">&#34;/proc/self/exe&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Environ</span><span class="p">());</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nb">panic</span><span class="p">(</span><span class="s">&#34;should not reach here&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>Now back to me trippin about that podman joinNamespace mechanism..</p>
+</blockquote>
+<p>And the lowlevel implementation of this relies on</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/rootless/rootless_linux.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm">#cgo remote CFLAGS: -Wall -Werror -DDISABLE_JOIN_SHORTCUT
+</span></span></span><span class="line"><span class="cl"><span class="cm">#include &lt;stdlib.h&gt;
+</span></span></span><span class="line"><span class="cl"><span class="cm">#include &lt;sys/types.h&gt;
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern uid_t rootless_uid();
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern uid_t rootless_gid();
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern int reexec_in_user_namespace(int ready, char *pause_pid_file_path, char *file_to_read, int fd);
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern int reexec_in_user_namespace_wait(int pid, int options);
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern int reexec_userns_join(int pid, char *pause_pid_file_path);
+</span></span></span><span class="line"><span class="cl"><span class="cm">extern int is_fd_inherited(int fd);
+</span></span></span><span class="line"><span class="cl"><span class="cm">*/</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="s">&#34;C&#34;</span>
+</span></span></code></pre></div><p>Seems something more articulated than the usecase I had in mind..<br>
+from the description here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1">// If needNewNamespace is set, the file is read from a temporary user
+</span></span></span><span class="line"><span class="cl"><span class="c1">// namespace, this is useful for containers that are running with a
+</span></span></span><span class="line"><span class="cl"><span class="c1">// different uidmap and the unprivileged user has no way to read the
+</span></span></span><span class="line"><span class="cl"><span class="c1">// file owned by the root in the container.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">TryJoinFromFilePaths</span><span class="p">(</span><span class="nx">pausePidPath</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">needNewNamespace</span> <span class="kt">bool</span><span class="p">,</span> <span class="nx">paths</span> <span class="p">[]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span></code></pre></div><p>It seems like this kind of logic could be (possibly?)related to the issues described
+<a href="https://opensource.com/article/18/12/podman-and-user-namespaces">here</a>
+and <a href="https://projectatomic.io/blog/2018/05/podman-userns/">here</a>;
+so the usecase could roughly be described as one container image being shared by
+different containers(processes) spawned inside different user namespaces, so that the files in the
+image&rsquo;s filesystem are lead to experience an identity crisis.
+We keep track of the namespace we&rsquo;ve created with our clone/fork/whatever/&hellip; so that when we
+reexec our process another time, we can jump into that userNamespace, instead of creating another one.<br>
+Dunno&hellip; I could be wrong..</p>
+<p>&hellip;</p>
+<p>Anyway.. we&rsquo;re talking about a mechanism which concentrates the most on this namespace-join,
+and has all the actual joinNamespace functions written in cgo..<br>
+I don&rsquo;t know yet what are the usecases where I should need this kind of logic.<br>
+Looking for something that could match the project I have in mind..</p>
+<p>Skipping&hellip;</p>
+<h3 id="buildah-implementation">buildah implementation</h3>
+<p>Say I want to
+<a href="https://github.com/containers/buildah/blob/v1.29.0/docs/tutorials/04-include-in-your-build-tool.md">include buildah in my build tool</a>&hellip;</p>
+<p>The code inside that .md contains this little function call here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// see the link above..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">unshare</span><span class="p">.</span><span class="nf">MaybeReexecUsingUserNamespace</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span>
+</span></span></code></pre></div><p>It seems like our &ldquo;makeRootless()&rdquo;.<br>
+The .md states:<br>
+<code>This code ensures that your application is re-executed in a user namespace where it has root privileges.</code><br>
+Sounds the simplest.. sounds like the thing I was looking for..<br>
+It looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// This comes from the containers/storage lib.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// 
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/unshare/unshare_linux.go @ storage
+</span></span></span><span class="line"><span class="cl"><span class="c1">// MaybeReexecUsingUserNamespace re-exec the process in a new namespace
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">MaybeReexecUsingUserNamespace</span><span class="p">(</span><span class="nx">evenForRoot</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="c1">// we&#39;re returning if we&#39;re already root and we&#39;ve started as non root
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// If we&#39;ve already been through this once, no need to try again.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Geteuid</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nf">GetRootlessUID</span><span class="p">()</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Figure out who we are.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="o">+</span>	<span class="c1">//parses this output
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">me</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">user</span><span class="p">.</span><span class="nf">Current</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="c1">// to populate those
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="kd">var</span> <span class="nx">uidNum</span><span class="p">,</span> <span class="nx">gidNum</span> <span class="kt">uint64</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="c1">// Does some `/etc/subuid`/`/etc/subgid` mapping magic..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="o">+</span>	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="c1">// Unlike most uses of reexec or unshare, we&#39;re using a name that
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// _won&#39;t_ be recognized as a registered reexec handler, since we
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// _want_ to fall through reexec.Init() to the normal main().
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">cmd</span> <span class="o">:=</span> <span class="nf">Command</span><span class="p">(</span><span class="nb">append</span><span class="p">([]</span><span class="kt">string</span><span class="p">{</span><span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s-in-a-user-namespace&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">0</span><span class="p">])},</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">...</span><span class="p">)</span><span class="o">...</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="c1">// Need to figure out what that means..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">+</span>	<span class="c1">// Preparing to spawn child process
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// Reuse our stdio.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Stdin</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stdin</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Stdout</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stdout</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Stderr</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Set up a new user namespace with the ID mapping.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="o">+</span> 	<span class="c1">//that we&#39;ve gathered earlier
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">cmd</span><span class="p">.</span><span class="nx">UnshareFlags</span> <span class="p">=</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">CLONE_NEWUSER</span> <span class="p">|</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">CLONE_NEWNS</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">UseNewuidmap</span> <span class="p">=</span> <span class="nx">uidNum</span> <span class="o">!=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">UidMappings</span> <span class="p">=</span> <span class="nx">uidmap</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">UseNewgidmap</span> <span class="p">=</span> <span class="nx">uidNum</span> <span class="o">!=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">GidMappings</span> <span class="p">=</span> <span class="nx">gidmap</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">GidMappingsEnableSetgroups</span> <span class="p">=</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Finish up.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">logrus</span><span class="p">.</span><span class="nf">Debugf</span><span class="p">(</span><span class="s">&#34;Running %+v with environment %+v, UID map %+v, and GID map %+v&#34;</span><span class="p">,</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">Cmd</span><span class="p">.</span><span class="nx">Args</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Environ</span><span class="p">(),</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">UidMappings</span><span class="p">,</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">GidMappings</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Forward SIGHUP, SIGINT, and SIGTERM to our child process.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">interrupted</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">signal</span><span class="p">.</span><span class="nf">Stop</span><span class="p">(</span><span class="nx">interrupted</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nb">close</span><span class="p">(</span><span class="nx">interrupted</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Hook</span> <span class="p">=</span> <span class="kd">func</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">for</span> <span class="nx">receivedSignal</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">interrupted</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">cmd</span><span class="p">.</span><span class="nx">Cmd</span><span class="p">.</span><span class="nx">Process</span><span class="p">.</span><span class="nf">Signal</span><span class="p">(</span><span class="nx">receivedSignal</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">signal</span><span class="p">.</span><span class="nf">Notify</span><span class="p">(</span><span class="nx">interrupted</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGHUP</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGINT</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGTERM</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Make sure our child process gets SIGKILLed if we exit, for whatever
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// reason, before it does.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">Cmd</span><span class="p">.</span><span class="nx">SysProcAttr</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">cmd</span><span class="p">.</span><span class="nx">Cmd</span><span class="p">.</span><span class="nx">SysProcAttr</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">syscall</span><span class="p">.</span><span class="nx">SysProcAttr</span><span class="p">{}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Cmd</span><span class="p">.</span><span class="nx">SysProcAttr</span><span class="p">.</span><span class="nx">Pdeathsig</span> <span class="p">=</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGKILL</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nf">ExecRunnable</span><span class="p">(</span><span class="nx">cmd</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="the-usecase">the usecase</h2>
+<p>So.. let&rsquo;s say I want to build a cli command that builds container images; ideally in one run.<br>
+For something like that, being able to tell which namespace we&rsquo;re running on,
+and possibly join other open namespaces, sounds like overkill:<br>
+As long as we can be root inside a generic userNamespace, I think we should be fine..</p>
+<p>Plus I can see no need in unsharing other parent resources,<br>
+I think we can rely on /etc/subuid and /etc/subgid to set our uid/gid inside the user namespace,
+to be the same in multiple runs&hellip;<br>
+Dunno.. now I&rsquo;m probably just talking nonsense..</p>
+<p>I really want to try to build something with this, to have a better idea about what&rsquo;s going on..<br>
+Using the buildah lib solution(<code>unshare.MaybeReexecUsingUserNamespace(false)</code>) would be boring..<br>
+also it contains hardcoded references to buildah itself..</p>
+<p>But I&rsquo;ll keep this for another post..<br>
+this one has grown too long too fast.</p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/containers">containers</a></li>
+					
+					<li><a href="/tags/golang">golang</a></li>
+					
+					<li><a href="/tags/rootless">rootless</a></li>
+					
+					<li><a href="/tags/exploration">exploration</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

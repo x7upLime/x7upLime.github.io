@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>andrewdomain Blog</title>
+    <link>/</link>
+    <description>Recent content on andrewdomain Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 07 Jan 2024 21:33:38 +0200</lastBuildDate>
+    <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>A_brief_story_of_hier</title>
+      <link>/posts/a_brief_story_of_hier/</link>
+      <pubDate>Sun, 07 Jan 2024 21:33:38 +0200</pubDate>
+      <guid>/posts/a_brief_story_of_hier/</guid>
+      <description>Recently Fedora opened this curious Change proposal about the unification of the /bin and /sbin paths.&#xA;The news was welcomed by the community with short oneline sentences, that didn&amp;rsquo;t help me understand the connotations of that proposal so I thought about using the occasion to do some little research to make light on this matter&amp;hellip;&#xA;What I found out is that Fedora was not the first distro to implement this choice, but was one of the first ones to start this 10+ years old discussion about reforming the filesystem hierarchy under Linux, which now is reaching a more advanced state.</description>
+    </item>
+    <item>
+      <title>notes on `Rootless`</title>
+      <link>/posts/rootless/</link>
+      <pubDate>Mon, 06 Feb 2023 11:44:12 +0200</pubDate>
+      <guid>/posts/rootless/</guid>
+      <description>Rootless is one big deal in the container-new-world-order; was one of podman&amp;rsquo;s most captivating features.. then everyone seem to have moved to(supported) rootless.&#xA;Community efforts were made to demistify the rootless mechanism, then everyone was adding support to rootless&amp;hellip; But how does it work? Does it work only for containers?&#xA;Of course it doesn&amp;rsquo;t work only for containers.. the whole rootless-thingy relies on the namespaces mechanism, which is something that lives in the linux kernel(maybe other kernels as well.</description>
+    </item>
+    <item>
+      <title>Container Adventures 4</title>
+      <link>/posts/container-adventures4/</link>
+      <pubDate>Mon, 23 Jan 2023 15:17:23 +0200</pubDate>
+      <guid>/posts/container-adventures4/</guid>
+      <description>I know this is part 4 of an incomplete list of articles&amp;hellip;&#xA;part 3 and 2 are on my todolist..&#xA;This whole thing happened after the currently unpublished &amp;ldquo;container adventures 3&amp;rdquo;,&#xA;and gave birth to those foolish junior prs/issues on kubernetes/minikube&#xA;#15678 ca3&#xA;#15696 ca3&#xA;#15677 ca3 - the issue.. but the discussion is on slack&#xA;#15491 ca3 &amp;ndash; not able to rebase + change in workflow&#xA;#15697 the create-volume bug</description>
+    </item>
+    <item>
+      <title>Container Adventures 1</title>
+      <link>/posts/container-adventures1/</link>
+      <pubDate>Tue, 22 Nov 2022 22:44:11 +3100</pubDate>
+      <guid>/posts/container-adventures1/</guid>
+      <description>Since this is the first post.. I may start by saying that this will be a series documenting my learning process for containers/golang.&#xA;I&amp;rsquo;m finding out about myself, that I tend to implement the head-first approach when I have no clear ideas about what I&amp;rsquo;m doing.. That would mean that I&amp;rsquo;ll definitely (when not bothering the community.. or the community not answering me) be drawing conclusions and answering the conclusions that I drew myself.</description>
+    </item>
+    <item>
+      <title>when work meets interests</title>
+      <link>/posts/awx-go/</link>
+      <pubDate>Fri, 07 Oct 2022 21:23:17 +0200</pubDate>
+      <guid>/posts/awx-go/</guid>
+      <description>Let&amp;rsquo;s look at the problem.. It all started when I was put on the infrastructure patching for the linux machines, in an awx/git infrastructure;&#xA;I had to patch a number of services, with an almost equal number of related ansible playbooks on git, and a much lower number of equivalent awx projects&amp;hellip;&#xA;The previous management suggested me to do the update work by hand,&#xA;creating for each missing ansible project on awx:</description>
+    </item>
+  </channel>
+</rss>

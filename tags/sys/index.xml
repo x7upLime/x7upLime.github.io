@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>sys on andrewdomain Blog</title>
+    <link>/tags/sys/</link>
+    <description>Recent content in sys on andrewdomain Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 07 Jan 2024 21:33:38 +0200</lastBuildDate>
+    <atom:link href="/tags/sys/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>A_brief_story_of_hier</title>
+      <link>/posts/a_brief_story_of_hier/</link>
+      <pubDate>Sun, 07 Jan 2024 21:33:38 +0200</pubDate>
+      <guid>/posts/a_brief_story_of_hier/</guid>
+      <description>Recently Fedora opened this curious Change proposal about the unification of the /bin and /sbin paths.&#xA;The news was welcomed by the community with short oneline sentences, that didn&amp;rsquo;t help me understand the connotations of that proposal so I thought about using the occasion to do some little research to make light on this matter&amp;hellip;&#xA;What I found out is that Fedora was not the first distro to implement this choice, but was one of the first ones to start this 10+ years old discussion about reforming the filesystem hierarchy under Linux, which now is reaching a more advanced state.</description>
+    </item>
+  </channel>
+</rss>

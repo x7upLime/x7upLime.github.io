@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>when work meets interests - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="first steps inside the programming world.." />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="when work meets interests" />
+<meta property="og:description" content="first steps inside the programming world.." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/awx-go/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-10-07T21:23:17+02:00" />
+<meta property="article:modified_time" content="2022-10-07T21:23:17+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="when work meets interests"/>
+<meta name="twitter:description" content="first steps inside the programming world.."/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">when work meets interests</h1>
+			<div class="meta">Posted on Oct 7, 2022</div>
+		</div>
+		
+
+		<section class="body">
+			<h3 id="lets-look-at-the-problem">Let&rsquo;s look at the problem..</h3>
+<p>It all started when I was put on the infrastructure patching for the linux machines,
+in an awx/git infrastructure;<br>
+I had to patch a number of services, with an almost equal number of related ansible playbooks on git,
+and a much lower number of equivalent awx projects&hellip;</p>
+<p>The previous management suggested me to do the update work by hand,<br>
+creating for each missing ansible project on awx:</p>
+<ul>
+<li>a project</li>
+<li>an inventory</li>
+<li>an inventory source (+sync call)</li>
+<li>a job template</li>
+<li>credentials</li>
+<li>whatever&hellip;</li>
+</ul>
+<p>No way.</p>
+<h3 id="finding-a-solution">Finding a solution..</h3>
+<p>Well.. awx servers have apis&hellip;</p>
+<p>I started by 4 keywords: &ldquo;awx api client golang&rdquo; &ndash;&gt; Search!<br>
+No particular reason for the last one,<br>
+since nobody I know programs for a hobby or work..
+I just wanted to pick one language and learn it for good.<br>
+It just happened that I was more charmed by Go than c or python at that moment,
+so I followed a couple more projects written in Go.<br>
+Golang just fell on my desk.. it seemed promising,
+interesting and with a bunch of nice tutorials and blog posts.</p>
+<p>So I found a couple of libraries for the awx apis,<br>
+one had last commit 5 years ago,<br>
+one was throwing errors even following the tutorial<br>
+one had some pretty
+gopher image in it.. so I chose <a href="https://github.com/Colstuwjx/awx-go">this..</a></p>
+<hr>
+<h4 id="new-codebase">new codebase</h4>
+<p>Familiarizing with the library was almost immediate:
+Let&rsquo;s start from the readme exmple..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// README.md
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">awxGo</span> <span class="s">&#34;github.com/Colstuwjx/awx-go&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">awx</span> <span class="o">:=</span> <span class="nx">awxGo</span><span class="p">.</span><span class="nf">NewAWX</span><span class="p">(</span><span class="s">&#34;http://awx.domain&#34;</span><span class="p">,</span> <span class="s">&#34;awx_usr&#34;</span><span class="p">,</span> <span class="s">&#34;awxpwd&#34;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nx">result</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">awx</span><span class="p">.</span><span class="nx">PingService</span><span class="p">.</span><span class="nf">Ping</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nx">log</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;Ping awx err: %s&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Ping awx: &#34;</span><span class="p">,</span> <span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>You get a client, you call methods from it, you check for err.. and that&rsquo;s about it. Easy.</p>
+<p>I started using the library to write a little piece of code.. and It worked!</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">mt</span> <span class="o">*</span><span class="nx">mytype</span><span class="p">)</span> <span class="nf">createprj</span><span class="p">(</span><span class="cm">/*someparameters..*/</span><span class="p">)</span> <span class="kt">int</span> <span class="p">{</span> <span class="c1">// you get the idea..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">nprj</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">mt</span><span class="p">.</span><span class="nx">ProjectService</span><span class="p">.</span><span class="nf">CreateProject</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;name&#34;</span><span class="p">:</span> <span class="nx">name</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;description&#34;</span><span class="p">:</span> <span class="nx">descr</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;organization&#34;</span><span class="p">:</span> <span class="nx">org</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;scm_type&#34;</span><span class="p">:</span> <span class="s">&#34;git&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;scm_url&#34;</span><span class="p">:</span> <span class="nx">giturl</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;scm_branch&#34;</span><span class="p">:</span> <span class="nx">gitbranch</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">},</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Error during prj creation:&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">os</span><span class="p">.</span><span class="nf">Exit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nx">nprj</span><span class="p">.</span><span class="nx">Created</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Project successfully created&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nx">nprj</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span> <span class="s">&#34; || &#34;</span><span class="p">,</span> <span class="nx">nprj</span><span class="p">.</span><span class="nx">ID</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">nprj</span><span class="p">.</span><span class="nx">ID</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>For how to call the CreateProject() function, I had a hint from the tests:<br>
+Noticed the *Service pattern (the ProjectService above, the PingService in the example,&hellip;),<br>
+I saw how those referred to some awx api &lsquo;group&rsquo; of related calls (the group being awx-go specific
+..there is no Ping section
+<a href="https://docs.ansible.com/ansible-tower/latest/html/towerapi/api_ref.html">here</a>)
+and how those groups had each 1 file in the awx-go repo:</p>
+<pre tabindex="0"><code>  -rw-r--r-- 1 andrew andrew  4413 Sep 28 21:32 inventories.go
+  -rw-r--r-- 1 andrew andrew 24146 Sep 28 19:50 inventories_test.go
+  -rw-r--r-- 1 andrew andrew   637 Sep 24 06:23 inventory_update.go
+  -rw-r--r-- 1 andrew andrew  4043 Sep 24 06:23 inventory_update_test.go
+  -rw-r--r-- 1 andrew andrew  3306 Sep 24 06:23 job.go
+  -rw-r--r-- 1 andrew andrew 14635 Sep 24 06:23 job_test.go
+  -rw-r--r-- 1 andrew andrew  4018 Oct  1 18:34 job_template.go
+  -rw-r--r-- 1 andrew andrew 22056 Sep 24 06:23 job_template_test.go
+  -rw-r--r-- 1 andrew andrew   437 Sep 24 06:23 ping.go
+  -rw-r--r-- 1 andrew andrew   809 Sep 24 06:23 ping_test.go
+  -rw-r--r-- 1 andrew andrew  2470 Sep 24 20:49 projects.go
+  -rw-r--r-- 1 andrew andrew  8992 Sep 24 06:23 projects_test.go
+  -rw-r--r-- 1 andrew andrew   973 Sep 24 06:23 project_updates.go
+  -rw-r--r-- 1 andrew andrew  5831 Sep 24 06:23 project_updates_test.go
+</code></pre><p>each group also has a related _test.go file, and that of  projects.go has a test for
+the CreateProject() function I was looking for&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// projects_test.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">TestCreateProject</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">expectCreateProjectResponse</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">Project</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					    <span class="c1">// ..some big struct
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">awx</span> <span class="o">:=</span> <span class="nf">NewAWX</span><span class="p">(</span><span class="nx">testAwxHost</span><span class="p">,</span> <span class="nx">testAwxUserName</span><span class="p">,</span> <span class="nx">testAwxPasswd</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">awx</span><span class="p">.</span><span class="nx">ProjectService</span><span class="p">.</span><span class="nf">CreateProject</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;name&#34;</span><span class="p">:</span>         <span class="s">&#34;TestProject&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;description&#34;</span><span class="p">:</span>  <span class="s">&#34;Test project&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;organization&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;scm_type&#34;</span><span class="p">:</span>     <span class="s">&#34;git&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">},</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;CreateProject err: %s&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">checkAPICallResult</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nx">expectCreateProjectResponse</span><span class="p">,</span> <span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Log</span><span class="p">(</span><span class="s">&#34;CreateProject passed!&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>hmm.. so CreateProject() is called like this.<br>
+No check on the api call parameters nor anything, just plain strings..<br>
+May have ups and downs. (..TODO)</p>
+<h3 id="the-issue">The issue</h3>
+<p>My strategy was: &ldquo;Test all calls first, put&rsquo;em in the correct order.. add logic.. add cli&rdquo;<br>
+and the project creation part was covered. The inventory part was not that different,
+but I wasn&rsquo;t able to find the inventory source api call&hellip; cause there was none.<br>
+It shouldn&rsquo;t be too difficult to add one..</p>
+<p>All exported functions for api calls have this form:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// ping.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">p</span> <span class="o">*</span><span class="nx">PingService</span><span class="p">)</span> <span class="nf">Ping</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="nx">Ping</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">Ping</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">endpoint</span> <span class="o">:=</span> <span class="s">&#34;/api/v2/ping/&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">p</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Requester</span><span class="p">.</span><span class="nf">GetJSON</span><span class="p">(</span><span class="nx">endpoint</span><span class="p">,</span> <span class="nx">result</span><span class="p">,</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{})</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">CheckResponse</span><span class="p">(</span><span class="nx">resp</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span> <span class="c1">// it ..well ..check for response
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">result</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Which essentially little logic around that GetJson(), which is itself nothing more that
+a couple of headers on top of a Do() method:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// request.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Requester</span><span class="p">)</span> <span class="nf">GetJSON</span><span class="p">(</span><span class="nx">endpoint</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">responseStruct</span> <span class="kd">interface</span><span class="p">{},</span> <span class="nx">query</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Response</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ar</span> <span class="o">:=</span> <span class="nf">NewAPIRequest</span><span class="p">(</span><span class="s">&#34;GET&#34;</span><span class="p">,</span> <span class="nx">endpoint</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ar</span><span class="p">.</span><span class="nf">SetHeader</span><span class="p">(</span><span class="s">&#34;Content-Type&#34;</span><span class="p">,</span> <span class="s">&#34;application/json&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ar</span><span class="p">.</span><span class="nx">Suffix</span> <span class="p">=</span> <span class="s">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nf">Do</span><span class="p">(</span><span class="nx">ar</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">responseStruct</span><span class="p">,</span> <span class="nx">query</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// request.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Requester</span><span class="p">)</span> <span class="nf">Do</span><span class="p">(</span><span class="nx">ar</span> <span class="o">*</span><span class="nx">APIRequest</span><span class="p">,</span> <span class="nx">responseStruct</span> <span class="kd">interface</span><span class="p">{},</span> <span class="nx">options</span> <span class="o">...</span><span class="kd">interface</span><span class="p">{})</span> <span class="p">(</span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Response</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">   	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// parsing url
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">URL</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">url</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Base</span> <span class="o">+</span> <span class="nx">ar</span><span class="p">.</span><span class="nx">Endpoint</span> <span class="o">+</span> <span class="nx">ar</span><span class="p">.</span><span class="nx">Suffix</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// creates a std http request
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="kd">var</span> <span class="nx">req</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">req</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">http</span><span class="p">.</span><span class="nf">NewRequest</span><span class="p">(</span><span class="nx">ar</span><span class="p">.</span><span class="nx">Method</span><span class="p">,</span> <span class="nx">URL</span><span class="p">.</span><span class="nf">String</span><span class="p">(),</span> <span class="nx">ar</span><span class="p">.</span><span class="nx">Payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// make a std request
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">response</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">Client</span><span class="p">.</span><span class="nf">Do</span><span class="p">(</span><span class="nx">req</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// return unpacked json response.. based on what struct was originally passed
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// by the (in this case) Ping() call
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">switch</span> <span class="nx">responseStruct</span><span class="p">.(</span><span class="kd">type</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="o">*</span><span class="kt">string</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nf">ReadRawResponse</span><span class="p">(</span><span class="nx">response</span><span class="p">,</span> <span class="nx">responseStruct</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">default</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nf">ReadJSONResponse</span><span class="p">(</span><span class="nx">response</span><span class="p">,</span> <span class="nx">responseStruct</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// request.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">Requester</span><span class="p">)</span> <span class="nf">ReadJSONResponse</span><span class="p">(</span><span class="nx">response</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Response</span><span class="p">,</span> <span class="nx">responseStruct</span> <span class="kd">interface</span><span class="p">{})</span> <span class="p">(</span><span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Response</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">response</span><span class="p">.</span><span class="nx">Body</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">json</span><span class="p">.</span><span class="nf">NewDecoder</span><span class="p">(</span><span class="nx">response</span><span class="p">.</span><span class="nx">Body</span><span class="p">).</span><span class="nf">Decode</span><span class="p">(</span><span class="nx">responseStruct</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">response</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Then GetJSON() surely has PostJSON()/PatchJSON()/&hellip; counterparts and so on..
+And I don&rsquo;t expect that NewAPIRequest() inside GetJSON() to be that complex</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// request.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">NewAPIRequest</span><span class="p">(</span><span class="nx">method</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">endpoint</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">payload</span> <span class="nx">io</span><span class="p">.</span><span class="nx">Reader</span><span class="p">)</span> <span class="o">*</span><span class="nx">APIRequest</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">headers</span> <span class="p">=</span> <span class="nx">http</span><span class="p">.</span><span class="nx">Header</span><span class="p">{}</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">suffix</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ar</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">APIRequest</span><span class="p">{</span><span class="nx">method</span><span class="p">,</span> <span class="nx">endpoint</span><span class="p">,</span> <span class="nx">payload</span><span class="p">,</span> <span class="nx">headers</span><span class="p">,</span> <span class="nx">suffix</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">ar</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// request.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">APIRequest</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Method</span>   <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Endpoint</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Payload</span>  <span class="nx">io</span><span class="p">.</span><span class="nx">Reader</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Headers</span>  <span class="nx">http</span><span class="p">.</span><span class="nx">Header</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Suffix</span>   <span class="kt">string</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Essentially is just putting a method for the api endpoint, with payload and sprinkles
+under the same roof.</p>
+<p>Knowing what foundations are we building on top of..
+Let&rsquo;s explore some other high level fuctions, maybe we find something similar to
+what we&rsquo;re tring to write.</p>
+<h3 id="adding-a-couple-of-lines">Adding a couple of lines</h3>
+<p>Of course first there&rsquo;s</p>
+<ul>
+<li>git clone repo</li>
+<li>git checkout -b newBranch (I was already aiming at my first pull request..)</li>
+</ul>
+<p>Because I noticed that.. once familiarizing with git.. working on branches is tidier</p>
+<p>We&rsquo;re trying to make a POST call<br>
+So let&rsquo;s copy from something like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// inventories.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">i</span> <span class="o">*</span><span class="nx">InventoriesService</span><span class="p">)</span> <span class="nf">CreateInventory</span><span class="p">(</span><span class="nx">data</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{},</span> <span class="nx">params</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">Inventory</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">mandatoryFields</span> <span class="p">=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;name&#34;</span><span class="p">,</span> <span class="s">&#34;organization&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">validate</span><span class="p">,</span> <span class="nx">status</span> <span class="o">:=</span> <span class="nf">ValidateParams</span><span class="p">(</span><span class="nx">data</span><span class="p">,</span> <span class="nx">mandatoryFields</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">!</span><span class="nx">status</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">err</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;Mandatory input arguments are absent: %s&#34;</span><span class="p">,</span> <span class="nx">validate</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">Inventory</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">endpoint</span> <span class="o">:=</span> <span class="s">&#34;/api/v2/inventories/&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">payload</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Add check if inventory exists and return proper error
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">i</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Requester</span><span class="p">.</span><span class="nf">PostJSON</span><span class="p">(</span><span class="nx">endpoint</span><span class="p">,</span> <span class="nx">bytes</span><span class="p">.</span><span class="nf">NewReader</span><span class="p">(</span><span class="nx">payload</span><span class="p">),</span> <span class="nx">result</span><span class="p">,</span> <span class="nx">params</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">CheckResponse</span><span class="p">(</span><span class="nx">resp</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">result</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>for how the library&rsquo;s exported calls are structured.. it doesn&rsquo;t really need much rework,<br>
+just change the endpoint, mandatory arguments..<br>
+and we&rsquo;re pretty much good to go:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">i</span> <span class="o">*</span><span class="nx">InventoriesService</span><span class="p">)</span> <span class="nf">CreateInventorySource</span><span class="p">(</span><span class="nx">id</span> <span class="kt">int</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{},</span> <span class="nx">params</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">InventorySource</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">mandatoryFields</span> <span class="p">=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&#34;name&#34;</span><span class="p">}</span>  <span class="c1">// checked api docs..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">validate</span><span class="p">,</span> <span class="nx">status</span> <span class="o">:=</span> <span class="nf">ValidateParams</span><span class="p">(</span><span class="nx">data</span><span class="p">,</span> <span class="nx">mandatoryFields</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">!</span><span class="nx">status</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">err</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;Mandatory input arguments are absent: %s&#34;</span><span class="p">,</span> <span class="nx">validate</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">InventorySource</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">endpoint</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;/api/v2/inventories/%d/inventory_sources/&#34;</span><span class="p">,</span> <span class="nx">id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">payload</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Add check if inventory_source exists and return proper error
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// (I even kept the todos :) 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">i</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Requester</span><span class="p">.</span><span class="nf">PostJSON</span><span class="p">(</span><span class="nx">endpoint</span><span class="p">,</span> <span class="nx">bytes</span><span class="p">.</span><span class="nf">NewReader</span><span class="p">(</span><span class="nx">payload</span><span class="p">),</span> <span class="nx">result</span><span class="p">,</span> <span class="nx">params</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">CheckResponse</span><span class="p">(</span><span class="nx">resp</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">result</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>It works.. it provides the same level of control on the api call..<br>
+think we&rsquo;re ok.</p>
+<h4 id="types">types</h4>
+<p>Oh yeah..<br>
+One major change was the type we&rsquo;re expecting from the awx server:<br>
+that InventorySource was not there before</p>
+<p>Turns out each high level call (which is an api request) initializes his own type that
+is then passed down the stack, till is used to parse the json received from server,
+then returns (the type is indeed the api response).</p>
+<p>A couple examples&hellip;</p>
+<blockquote>
+<p>Inventory</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// inventories.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">i</span> <span class="o">*</span><span class="nx">InventoriesService</span><span class="p">)</span> <span class="nf">UpdateInventory</span><span class="p">(</span><span class="nx">id</span> <span class="kt">int</span><span class="p">,</span> <span class="nx">data</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{},</span> <span class="nx">params</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">Inventory</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">Inventory</span><span class="p">)</span> <span class="c1">// same as CreateInventory/GetInventory/...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl"><span class="c1">// types.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">Inventory</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ID</span>                           <span class="kt">int</span>         <span class="s">`json:&#34;id&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Name</span>                         <span class="kt">string</span>      <span class="s">`json:&#34;name&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Description</span>                  <span class="kt">string</span>      <span class="s">`json:&#34;description&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// other stuff as well..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>ListInventoriesresponse</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// inventories.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">i</span> <span class="o">*</span><span class="nx">InventoriesService</span><span class="p">)</span> <span class="nf">ListInventories</span><span class="p">(</span><span class="nx">params</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">([]</span><span class="o">*</span><span class="nx">Inventory</span><span class="p">,</span> <span class="o">*</span><span class="nx">ListInventoriesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">ListInventoriesResponse</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl"><span class="c1">// types.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">ListInventoriesResponse</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Pagination</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Results</span> <span class="p">[]</span><span class="o">*</span><span class="nx">Inventory</span> <span class="s">`json:&#34;results&#34;`</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>Project</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// projects.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">p</span> <span class="o">*</span><span class="nx">ProjectService</span><span class="p">)</span> <span class="nf">CreateProject</span><span class="p">(</span><span class="nx">data</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{},</span> <span class="nx">params</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">Project</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">result</span> <span class="o">:=</span> <span class="nb">new</span><span class="p">(</span><span class="nx">Project</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl"><span class="c1">// types.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">Project</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ID</span>                    <span class="kt">int</span>       <span class="s">`json:&#34;id&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Name</span>                  <span class="kt">string</span>    <span class="s">`json:&#34;name&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Description</span>           <span class="kt">string</span>    <span class="s">`json:&#34;description&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// other stuff as well...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>and so on&hellip;</p>
+<p>In order to build our own type, one could copy/paste the
+<a href="https://docs.ansible.com/ansible-tower/latest/html/towerapi/api_ref.html#/Inventory_Sources/Inventory_Sources_inventory_sources_create">json from the docs</a> in the Responses section:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;created&#34;</span><span class="p">:</span> <span class="s2">&#34;2018-02-01T08:00:00.000000Z&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;credential&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;custom_virtualenv&#34;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;description&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;enabled_value&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;enabled_var&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;host_filter&#34;</span><span class="p">:</span> <span class="s2">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;inventory&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"> <span class="c1">/// It&#39;s larger than that..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>or even better.. to clone&amp;<a href="https://github.com/ansible/awx/blob/devel/tools/docker-compose/README.md">run the awx repo</a>
+and make a curl to the latest version
+(there is no info about which version we&rsquo;re using.. as far as I can tell..),
+because ..well, it&rsquo;s open.</p>
+<p>( [!] first u need to create the relative project and inventory.. either via gui or api call)<br>
+Here&rsquo;s the curl..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ curl -u user:<span class="s1">&#39;complex-pwd&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       -k https://localhost:8043/api/v2/inventory_sources/ <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       -X POST -H <span class="s1">&#39;Content-Type: application/json&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       -d <span class="s1">&#39;{&#34;name&#34;:&#34;testinvrsc2&#34;,&#34;source&#34;:&#34;scm&#34;,&#34;source_path&#34;:&#34;somepath&#34;,&#34;inventory&#34;:5,&#34;update_on_launch&#34;:&#34;true&#34;,&#34;source_project&#34;:18}&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       <span class="p">|</span> jq
+</span></span></code></pre></div><blockquote>
+<p>[!] Don'1 forget the &lsquo;/&rsquo; at the end of the uri (https://localhost:8043/api/v2/inventory_sources/) !!<br>
+For how the lib is implemented right now.. it could be the missing &lsquo;/&rsquo;, it could be a parameter typo,
+it could be that the project/inventory/&hellip; already exists.. you&rsquo;re still getting a 400. (TODO)</p>
+<p>You may or may not choose to use a real password for your project..<br>
+so you could pass the secrets to the curl via an env var</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ <span class="nv">MYSECRET</span><span class="o">=</span>secretpwd
+</span></span><span class="line"><span class="cl">$ curl -u user:<span class="nv">$MYSECRET</span> <span class="c1"># and so on..</span>
+</span></span></code></pre></div><p>or just</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ <span class="nb">export</span> <span class="nv">HISTCONTROL</span><span class="o">=</span>ignorespace
+</span></span></code></pre></div><p>and then C-k/C-y your command :)</p>
+</blockquote>
+<p>with jq the output is prettier and you can do stuff with it..
+like displaying only certain k/v pairs of json for a list of entities in the out&hellip;</p>
+<p>Either way one choses.. the json is getting copypasted inside (maybe..) a
+<a href="https://mholt.github.io/json-to-go/">go struct generator..</a><br>
+to obtain the new InventorySource type:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// --&gt; types.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">InventorySource</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Created</span>              <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span>   <span class="s">`json:&#34;created&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Credential</span>           <span class="kd">interface</span><span class="p">{}</span> <span class="s">`json:&#34;credential&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">CustomVirtualenv</span>     <span class="kd">interface</span><span class="p">{}</span> <span class="s">`json:&#34;custom_virtualenv&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Description</span>          <span class="kt">string</span>      <span class="s">`json:&#34;description&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">EnabledValue</span>         <span class="kt">string</span>      <span class="s">`json:&#34;enabled_value&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">EnabledVar</span>           <span class="kt">string</span>      <span class="s">`json:&#34;enabled_var&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">HostFilter</span>           <span class="kt">string</span>      <span class="s">`json:&#34;host_filter&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ID</span>                   <span class="kt">int</span>         <span class="s">`json:&#34;id&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Inventory</span>            <span class="kt">int</span>         <span class="s">`json:&#34;inventory&#34;`</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">/// and so on...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>et voila!</p>
+<h4 id="the-service">the *Service</h4>
+<p>Since we&rsquo;re putting all this inside the InventoriesService type, we don&rsquo;t need to create another
+*Service entity.. which is this thing at the top of the inventories.go file:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// inventories.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// InventoriesService implements awx inventories apis.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">InventoriesService</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">client</span> <span class="o">*</span><span class="nx">Client</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>which becomes part of the greater entity AWX, here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// awx.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">AWX</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">client</span> <span class="o">*</span><span class="nx">Client</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">PingService</span>             <span class="o">*</span><span class="nx">PingService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">InventoriesService</span>      <span class="o">*</span><span class="nx">InventoriesService</span> <span class="c1">// &lt;---  here
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">InventoryUpdatesService</span> <span class="o">*</span><span class="nx">InventoryUpdatesService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">JobService</span>              <span class="o">*</span><span class="nx">JobService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">JobTemplateService</span>      <span class="o">*</span><span class="nx">JobTemplateService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ProjectService</span>          <span class="o">*</span><span class="nx">ProjectService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">ProjectUpdatesService</span>   <span class="o">*</span><span class="nx">ProjectUpdatesService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">UserService</span>             <span class="o">*</span><span class="nx">UserService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">GroupService</span>            <span class="o">*</span><span class="nx">GroupService</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">HostService</span>             <span class="o">*</span><span class="nx">HostService</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>and get&rsquo;s initialized here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// awx.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">NewAWX</span><span class="p">(</span><span class="nx">baseURL</span><span class="p">,</span> <span class="nx">userName</span><span class="p">,</span> <span class="nx">passwd</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">client</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Client</span><span class="p">)</span> <span class="o">*</span><span class="nx">AWX</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">Requester</span><span class="p">{</span><span class="nx">Base</span><span class="p">:</span> <span class="nx">baseURL</span><span class="p">,</span> <span class="nx">BasicAuth</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">BasicAuth</span><span class="p">{</span><span class="nx">Username</span><span class="p">:</span> <span class="nx">userName</span><span class="p">,</span> <span class="nx">Password</span><span class="p">:</span> <span class="nx">passwd</span><span class="p">},</span> <span class="nx">Client</span><span class="p">:</span> <span class="nx">client</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">r</span><span class="p">.</span><span class="nx">Client</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">r</span><span class="p">.</span><span class="nx">Client</span> <span class="p">=</span> <span class="nx">http</span><span class="p">.</span><span class="nx">DefaultClient</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">awxClient</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">Client</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">BaseURL</span><span class="p">:</span>   <span class="nx">baseURL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Requester</span><span class="p">:</span> <span class="nx">r</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">AWX</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">PingService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">PingService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">InventoriesService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">InventoriesService</span><span class="p">{</span> <span class="c1">//  &lt;--- here
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">InventoryUpdatesService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">InventoryUpdatesService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">JobService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">JobService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">JobTemplateService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">JobTemplateService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ProjectService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ProjectService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">ProjectUpdatesService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ProjectUpdatesService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">UserService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">UserService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">GroupService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">GroupService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">HostService</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">HostService</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">client</span><span class="p">:</span> <span class="nx">awxClient</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><blockquote>
+<p>I figured one starts to codes piece-wise,<br>
+programming languages allow you to develop logic in a straight line of &ldquo;makes-senseness&rdquo;<br>
+(sorry, not my main language&hellip;)<br>
+at some point you have a number of lines that need to converge in the same point,<br>
+that is where you glue your code together..<br>
+and while its almost always possible to glue different parts together..<br>
+it is there that your code makes less sense/looks weird&hellip;</p>
+<p>If every repo has one such point,<br>
+for awx-go.. that point was that above</p>
+</blockquote>
+<p>So we can say that, in order to add a new awx-go service, there are a couple places where you
+need to modify stuff:</p>
+<ul>
+<li>The &ldquo;service&rdquo;.go file
+<ul>
+<li>Add the file itself..</li>
+<li>Add the *service type</li>
+<li>Add the *service type methods</li>
+</ul>
+</li>
+<li>The types.go file
+<ul>
+<li>Add the api-call-response-go-type-structs for the *service type methods</li>
+</ul>
+</li>
+<li>The awx.go file
+<ul>
+<li>Add *service pointer to the AWX struct if the *service is new</li>
+<li>Add *service struct initialization to the NewAWX() function</li>
+</ul>
+</li>
+</ul>
+<p>should be enough..</p>
+<h3 id="testing">Testing</h3>
+<p>I found this part to be quite teachful..<br>
+As previously stated, each service.go has(or should have) a service_test.go equivalent,
+let&rsquo;s look at the CreateInventory() test inside the inventories_test.go file.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">TestCreateInventory</span><span class="p">(</span><span class="nx">t</span> <span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">expectCreateInventoryResponse</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">Inventory</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">ID</span><span class="p">:</span>   <span class="mi">6</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Type</span><span class="p">:</span> <span class="s">&#34;inventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">URL</span><span class="p">:</span>  <span class="s">&#34;/api/v2/inventories/6/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Related</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">Related</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">NamedURL</span><span class="p">:</span>               <span class="s">&#34;/api/v2/inventories/TestInventory++Default/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">CreatedBy</span><span class="p">:</span>              <span class="s">&#34;/api/v2/users/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ModifiedBy</span><span class="p">:</span>             <span class="s">&#34;/api/v2/users/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">JobTemplates</span><span class="p">:</span>           <span class="s">&#34;/api/v2/inventories/6/job_templates/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">VariableData</span><span class="p">:</span>           <span class="s">&#34;/api/v2/inventories/6/variable_data/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">RootGroups</span><span class="p">:</span>             <span class="s">&#34;/api/v2/inventories/6/root_groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ObjectRoles</span><span class="p">:</span>            <span class="s">&#34;/api/v2/inventories/6/object_roles/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">AdHocCommands</span><span class="p">:</span>          <span class="s">&#34;/api/v2/inventories/6/ad_hoc_commands/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Script</span><span class="p">:</span>                 <span class="s">&#34;/api/v2/inventories/6/script/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Tree</span><span class="p">:</span>                   <span class="s">&#34;/api/v2/inventories/6/tree/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">AccessList</span><span class="p">:</span>             <span class="s">&#34;/api/v2/inventories/6/access_list/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ActivityStream</span><span class="p">:</span>         <span class="s">&#34;/api/v2/inventories/6/activity_stream/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">InstanceGroups</span><span class="p">:</span>         <span class="s">&#34;/api/v2/inventories/6/instance_groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Hosts</span><span class="p">:</span>                  <span class="s">&#34;/api/v2/inventories/6/hosts/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Groups</span><span class="p">:</span>                 <span class="s">&#34;/api/v2/inventories/6/groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Copy</span><span class="p">:</span>                   <span class="s">&#34;/api/v2/inventories/6/copy/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">UpdateInventorySources</span><span class="p">:</span> <span class="s">&#34;/api/v2/inventories/6/update_inventory_sources/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">InventorySources</span><span class="p">:</span>       <span class="s">&#34;/api/v2/inventories/6/inventory_sources/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Organization</span><span class="p">:</span>           <span class="s">&#34;/api/v2/organizations/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">SummaryFields</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">Summary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Organization</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">OrgnizationSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>          <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Default&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">				<span class="nx">CreatedBy</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ByUserSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>        <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Username</span><span class="p">:</span>  <span class="s">&#34;admin&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">FirstName</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">LastName</span><span class="p">:</span>  <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">				<span class="nx">ModifiedBy</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ByUserSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>        <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Username</span><span class="p">:</span>  <span class="s">&#34;admin&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">FirstName</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">LastName</span><span class="p">:</span>  <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">				<span class="nx">ObjectRoles</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ObjectRoles</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">UseRole</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ApplyRole</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">ID</span><span class="p">:</span>          <span class="mi">80</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;Can use the inventory in a job template&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Use&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">					<span class="nx">AdminRole</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ApplyRole</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">ID</span><span class="p">:</span>          <span class="mi">78</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;Can manage all aspects of the inventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Admin&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">					<span class="nx">AdhocRole</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ApplyRole</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">ID</span><span class="p">:</span>          <span class="mi">77</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;May run ad hoc commands on an inventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Ad Hoc&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">					<span class="nx">UpdateRole</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ApplyRole</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">ID</span><span class="p">:</span>          <span class="mi">81</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;May update project or inventory or group using the configured source update system&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Update&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">					<span class="nx">ReadRole</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ApplyRole</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">ID</span><span class="p">:</span>          <span class="mi">79</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;May view settings for the inventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;Read&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="p">},</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">				<span class="nx">UserCapabilities</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">UserCapabilities</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Edit</span><span class="p">:</span>   <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Copy</span><span class="p">:</span>   <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Adhoc</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Delete</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="nx">Created</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160127Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}(),</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="nx">Modified</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160140Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">			<span class="p">}(),</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">			<span class="nx">Name</span><span class="p">:</span>                         <span class="s">&#34;TestInventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Description</span><span class="p">:</span>                  <span class="s">&#34;for testing CreateInventory api&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Organization</span><span class="p">:</span>                 <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Kind</span><span class="p">:</span>                         <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">HostFilter</span><span class="p">:</span>                   <span class="kc">nil</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Variables</span><span class="p">:</span>                    <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">HasActiveFailures</span><span class="p">:</span>            <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">TotalHosts</span><span class="p">:</span>                   <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">HostsWithActiveFailures</span><span class="p">:</span>      <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">TotalGroups</span><span class="p">:</span>                  <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">GroupsWithActiveFailures</span><span class="p">:</span>     <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">HasInventorySources</span><span class="p">:</span>          <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">TotalInventorySources</span><span class="p">:</span>        <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">InventorySourcesWithFailures</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">InsightsCredential</span><span class="p">:</span>           <span class="kc">nil</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">PendingDeletion</span><span class="p">:</span>              <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">awx</span> <span class="o">:=</span> <span class="nf">NewAWX</span><span class="p">(</span><span class="nx">testAwxHost</span><span class="p">,</span> <span class="nx">testAwxUserName</span><span class="p">,</span> <span class="nx">testAwxPasswd</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">result</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">awx</span><span class="p">.</span><span class="nx">InventoriesService</span><span class="p">.</span><span class="nf">CreateInventory</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;name&#34;</span><span class="p">:</span>         <span class="s">&#34;TestInventory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;description&#34;</span><span class="p">:</span>  <span class="s">&#34;for testing CreateInventory api&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;organization&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;kind&#34;</span><span class="p">:</span>         <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;host_filter&#34;</span><span class="p">:</span>  <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="s">&#34;variables&#34;</span><span class="p">:</span>    <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">},</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Fatalf</span><span class="p">(</span><span class="s">&#34;CreateInventory err: %s&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">checkAPICallResult</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span> <span class="nx">expectCreateInventoryResponse</span><span class="p">,</span> <span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">t</span><span class="p">.</span><span class="nf">Log</span><span class="p">(</span><span class="s">&#34;CreateInventory passed!&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>That is huuge&hellip;<br>
+and the first like 100 lines of code is not even logic.. it is the initialization of a struct.
+In fact, it is the initialization of the struct we&rsquo;re expecting the CreateInventory() call to return.<br>
+The rest is just:</p>
+<ul>
+<li>init client</li>
+<li>make call</li>
+<li>check for error</li>
+<li>[!!] Check if the result is what we&rsquo;re expecting (checkAPICallResult())</li>
+</ul>
+<hr>
+<p>Interesting.. but where&rsquo;s that response coming from?<br>
+we don&rsquo;t have an actual awx server listening and returning json..</p>
+<blockquote>
+<p>well, we could..<br>
+but then it&rsquo;s dependencies within repos.. extra test logic&hellip; extra complications..</p>
+</blockquote>
+<p>The server returning stuff to our calls is a mock server..<br>
+here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// awxtesting/mockserver/mockserver.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">mockServer</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">server</span> <span class="nx">http</span><span class="p">.</span><span class="nx">Server</span>  <span class="c1">// the basic go-stdlib http server
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="p">(</span><span class="nx">s</span> <span class="o">*</span><span class="nx">mockServer</span><span class="p">)</span> <span class="nf">InventoriesHandler</span><span class="p">(</span><span class="nx">rw</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">req</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">switch</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nx">req</span><span class="p">.</span><span class="nx">RequestURI</span> <span class="o">==</span> <span class="s">&#34;/api/v2/inventories/1/&#34;</span> <span class="o">&amp;&amp;</span> <span class="nx">req</span><span class="p">.</span><span class="nx">Method</span> <span class="o">==</span> <span class="s">&#34;GET&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">result</span> <span class="o">:=</span> <span class="nx">mockdata</span><span class="p">.</span><span class="nx">MockedGetInventoryResponse</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">rw</span><span class="p">.</span><span class="nf">Write</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="nx">req</span><span class="p">.</span><span class="nx">Method</span> <span class="o">==</span> <span class="s">&#34;POST&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">result</span> <span class="o">:=</span> <span class="nx">mockdata</span><span class="p">.</span><span class="nx">MockedCreateInventoryResponse</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">rw</span><span class="p">.</span><span class="nf">Write</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">default</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">result</span> <span class="o">:=</span> <span class="nx">mockdata</span><span class="p">.</span><span class="nx">MockedListInventoriesResponse</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">rw</span><span class="p">.</span><span class="nf">Write</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>And that result we&rsquo;re rw.Writing looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// awxtesting/mockserver/mockdata/inventories.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nx">MockedCreateInventoryResponse</span> <span class="p">=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">`
+</span></span></span><span class="line"><span class="cl"><span class="s">{
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;id&#34;: 6,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;type&#34;: &#34;inventory&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;url&#34;: &#34;/api/v2/inventories/6/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;related&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;named_url&#34;: &#34;/api/v2/inventories/TestInventory++Default/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;created_by&#34;: &#34;/api/v2/users/1/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;modified_by&#34;: &#34;/api/v2/users/1/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;job_templates&#34;: &#34;/api/v2/inventories/6/job_templates/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;variable_data&#34;: &#34;/api/v2/inventories/6/variable_data/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;root_groups&#34;: &#34;/api/v2/inventories/6/root_groups/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;object_roles&#34;: &#34;/api/v2/inventories/6/object_roles/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;ad_hoc_commands&#34;: &#34;/api/v2/inventories/6/ad_hoc_commands/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;script&#34;: &#34;/api/v2/inventories/6/script/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;tree&#34;: &#34;/api/v2/inventories/6/tree/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;access_list&#34;: &#34;/api/v2/inventories/6/access_list/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;activity_stream&#34;: &#34;/api/v2/inventories/6/activity_stream/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;instance_groups&#34;: &#34;/api/v2/inventories/6/instance_groups/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;hosts&#34;: &#34;/api/v2/inventories/6/hosts/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;groups&#34;: &#34;/api/v2/inventories/6/groups/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;copy&#34;: &#34;/api/v2/inventories/6/copy/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;update_inventory_sources&#34;: &#34;/api/v2/inventories/6/update_inventory_sources/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;inventory_sources&#34;: &#34;/api/v2/inventories/6/inventory_sources/&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;organization&#34;: &#34;/api/v2/organizations/1/&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">    },
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;summary_fields&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;organization&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;id&#34;: 1,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;name&#34;: &#34;Default&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;description&#34;: &#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">        },
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;created_by&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;id&#34;: 1,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;username&#34;: &#34;admin&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;first_name&#34;: &#34;&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;last_name&#34;: &#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">        },
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;modified_by&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;id&#34;: 1,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;username&#34;: &#34;admin&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;first_name&#34;: &#34;&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;last_name&#34;: &#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">        },
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;object_roles&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;use_role&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;id&#34;: 80,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;description&#34;: &#34;Can use the inventory in a job template&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;name&#34;: &#34;Use&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">            },
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;admin_role&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;id&#34;: 78,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;description&#34;: &#34;Can manage all aspects of the inventory&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;name&#34;: &#34;Admin&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">            },
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;adhoc_role&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;id&#34;: 77,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;description&#34;: &#34;May run ad hoc commands on an inventory&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;name&#34;: &#34;Ad Hoc&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">            },
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;update_role&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;id&#34;: 81,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;description&#34;: &#34;May update project or inventory or group using the configured source update system&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;name&#34;: &#34;Update&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">            },
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;read_role&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;id&#34;: 79,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;description&#34;: &#34;May view settings for the inventory&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">                &#34;name&#34;: &#34;Read&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s">            }
+</span></span></span><span class="line"><span class="cl"><span class="s">        },
+</span></span></span><span class="line"><span class="cl"><span class="s">        &#34;user_capabilities&#34;: {
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;edit&#34;: true,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;copy&#34;: true,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;adhoc&#34;: true,
+</span></span></span><span class="line"><span class="cl"><span class="s">            &#34;delete&#34;: true
+</span></span></span><span class="line"><span class="cl"><span class="s">        }
+</span></span></span><span class="line"><span class="cl"><span class="s">    },
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;created&#34;: &#34;2018-08-13T01:59:47.160127Z&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;modified&#34;: &#34;2018-08-13T01:59:47.160140Z&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;name&#34;: &#34;TestInventory&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;description&#34;: &#34;for testing CreateInventory api&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;organization&#34;: 1,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;kind&#34;: &#34;&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;host_filter&#34;: null,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;variables&#34;: &#34;&#34;,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;has_active_failures&#34;: false,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;total_hosts&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;hosts_with_active_failures&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;total_groups&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;groups_with_active_failures&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;has_inventory_sources&#34;: false,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;total_inventory_sources&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;inventory_sources_with_failures&#34;: 0,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;insights_credential&#34;: null,
+</span></span></span><span class="line"><span class="cl"><span class="s">    &#34;pending_deletion&#34;: false
+</span></span></span><span class="line"><span class="cl"><span class="s">}`</span><span class="p">)</span>
+</span></span></code></pre></div><p>Which is plain json.<br>
+And each high level api call exported by awx-go needs to have a test that is implemented
+using a mockserver.. that mocks an awx api json response.. which in this case is that above.</p>
+<blockquote>
+<h4 id="__how-does-that-work__"><strong>How does that work?</strong></h4>
+<p>one could be interesting to know how the mockserver thing works&hellip;<br>
+the rest of the mockserver implementation works like a normal go-stdlib http server<br>
+but it&rsquo;s still quite interesting and it can be found <a href="https://github.com/colstuwjx/awx-go/blob/master/awxtesting/mockserver/mockserver.go">here</a><br>
+The question &ldquo;how this mockserver even spawns under my ass when I press &ldquo;go test&rdquo;
+can find an answer <a href="https://stackoverflow.com/questions/23729790/how-can-i-do-test-setup-using-the-testing-package-in-go">here</a>, knowing that when we&rsquo;re gotesting we&rsquo;re also gotesting awx_test.go:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// awx_test.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kn">package</span> <span class="nx">awx</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;os&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;testing&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;time&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/Colstuwjx/awx-go/awxtesting/mockserver&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">testAwxHost</span>     <span class="p">=</span> <span class="s">&#34;http://127.0.0.1:8080&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">testAwxUserName</span> <span class="p">=</span> <span class="s">&#34;admin&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">testAwxPasswd</span>   <span class="p">=</span> <span class="s">&#34;password&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">TestMain</span><span class="p">(</span><span class="nx">m</span> <span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">M</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">setup</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">code</span> <span class="o">:=</span> <span class="nx">m</span><span class="p">.</span><span class="nf">Run</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">os</span><span class="p">.</span><span class="nf">Exit</span><span class="p">(</span><span class="nx">code</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">setup</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">mockserver</span><span class="p">.</span><span class="nf">Run</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// wait for mock server to run
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">time</span><span class="p">.</span><span class="nf">Sleep</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Millisecond</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">teardown</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">mockserver</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div></blockquote>
+<p>So when we&rsquo;re testing our calls..<br>
+we&rsquo;re initializing a go struct for the awx api response we&rsquo;re expecting<br>
+we&rsquo;re writing the mock plain json to pass to our high level function when calls<br>
+So we&rsquo;re expecting to receive the same data we&rsquo;re passing?<br>
+seems like an easy win&hellip;</p>
+<p>That one made no sense to me..</p>
+<p>I spent a lot of time even trying to formulate a phrase that could even resemble a question
+for the gopher community.. had no idea about what purpose those tests may have, nor how to write tests.</p>
+<p><img src="/posts/images/v1.0.png" alt="v1.0 question for the community" title="first version"></p>
+<p>I tried to reformulate the question several times, and it was getting waay too long,<br>
+it also contained self-answers.. the kind that have the effect to leave your question unanswered&hellip;
+depending on the community..<br>
+I tried to write a test that would be equivalent to the ones proposed in the project..
+after some time, something clicked!</p>
+<p><img src="/posts/images/v1.1.png" alt="v1.1 question for the community" title="second version"></p>
+<p>at that point that question was not a question anymore.. It was a blog post :)</p>
+<p>As anticipated in my v1.1 question&hellip;<br>
+We are not testing the high level api function itself..<br>
+we&rsquo;re testing the functions from which our function is built upon(which is quite te same thing..)..
+so that when we change a piece of innocent code somewhere, everything keeps its intended behaviour.</p>
+<p>So for me those tests mean:
+&ldquo;We want the tests to assure that under optimal network conditions and server access, the tested
+function will be able to parse each and every field of a complete json response returned
+from the awx server&rdquo; nothing more..<br>
+So there is no coverage (yet) for network unreliability/server_authentication issues
+(a note in the code suggested me that)/strange status codes/server errors/&hellip;.
+Because how do we even want the library to behave under network unreliability or server failure? (TODO)<br>
+Perhaps I&rsquo;m thinking towards an improvement here.. and I learned that if you&rsquo;ve something
+to propose in an open source project you better propose it in code.. in readable code actually..<br>
+and I can&rsquo;t think in golang yet&hellip;</p>
+<h3 id="mocking-api-responses">mocking api responses</h3>
+<p>So I already spent way too much time in initializing this expected api response struct:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">expectCreateInventorySourceResponse</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">InventorySource</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Source</span><span class="p">:</span> <span class="s">&#34;somesource&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">LastUpdated</span> <span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">							<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160127Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">							<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">						<span class="p">}(),</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Status</span><span class="p">:</span> <span class="s">&#34;somestatus&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Created</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">							<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160127Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">							<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">						<span class="p">}(),</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Credential</span><span class="p">:</span> <span class="s">&#34;totallylegitaccess&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">CustomVirtualenv</span><span class="p">:</span> <span class="s">&#34;null&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;somedescription&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">EnabledValue</span><span class="p">:</span> <span class="s">&#34;A&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">EnabledVar</span><span class="p">:</span> <span class="s">&#34;A&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">ExecutionEnvironment</span><span class="p">:</span> <span class="s">&#34;A&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">HostFilter</span><span class="p">:</span> <span class="s">&#34;A&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">ID</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Inventory</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">LastJobFailed</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">LastJobRun</span><span class="p">:</span> <span class="s">&#34;yesterday..&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">LastUpdateFailed</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Modified</span><span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">							<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160127Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">							<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">						<span class="p">}()</span> <span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Name</span><span class="p">:</span> <span class="s">&#34;an inventory source&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">NextJobRun</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Overwrite</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">OverwriteVars</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Related</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">Related</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">NamedURL</span><span class="p">:</span>               <span class="s">&#34;/api/v2/inventories/TestInventory++Default/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">CreatedBy</span><span class="p">:</span>              <span class="s">&#34;/api/v2/users/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ModifiedBy</span><span class="p">:</span>             <span class="s">&#34;/api/v2/users/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">JobTemplates</span><span class="p">:</span>           <span class="s">&#34;/api/v2/inventories/6/job_templates/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">VariableData</span><span class="p">:</span>           <span class="s">&#34;/api/v2/inventories/6/variable_data/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">RootGroups</span><span class="p">:</span>             <span class="s">&#34;/api/v2/inventories/6/root_groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ObjectRoles</span><span class="p">:</span>            <span class="s">&#34;/api/v2/inventories/6/object_roles/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">AdHocCommands</span><span class="p">:</span>          <span class="s">&#34;/api/v2/inventories/6/ad_hoc_commands/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Script</span><span class="p">:</span>                 <span class="s">&#34;/api/v2/inventories/6/script/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Tree</span><span class="p">:</span>                   <span class="s">&#34;/api/v2/inventories/6/tree/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">AccessList</span><span class="p">:</span>             <span class="s">&#34;/api/v2/inventories/6/access_list/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ActivityStream</span><span class="p">:</span>         <span class="s">&#34;/api/v2/inventories/6/activity_stream/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">InstanceGroups</span><span class="p">:</span>         <span class="s">&#34;/api/v2/inventories/6/instance_groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Hosts</span><span class="p">:</span>                  <span class="s">&#34;/api/v2/inventories/6/hosts/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Groups</span><span class="p">:</span>                 <span class="s">&#34;/api/v2/inventories/6/groups/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Copy</span><span class="p">:</span>                   <span class="s">&#34;/api/v2/inventories/6/copy/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">UpdateInventorySources</span><span class="p">:</span> <span class="s">&#34;/api/v2/inventories/6/update_inventory_sources/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">InventorySources</span><span class="p">:</span>       <span class="s">&#34;/api/v2/inventories/6/inventory_sources/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Organization</span><span class="p">:</span>           <span class="s">&#34;/api/v2/organizations/1/&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">SourcePath</span><span class="p">:</span> <span class="s">&#34;somesourcepath&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">SourceProject</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">SourceVars</span><span class="p">:</span> <span class="s">&#34;somesourcevars&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">SummaryFields</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">Summary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">Organization</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">OrgnizationSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>          <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Name</span><span class="p">:</span>        <span class="s">&#34;default&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Description</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">CreatedBy</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ByUserSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>        <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Username</span><span class="p">:</span>  <span class="s">&#34;admin&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">FirstName</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">LastName</span><span class="p">:</span>  <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">ModifiedBy</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">ByUserSummary</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">ID</span><span class="p">:</span>        <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">Username</span><span class="p">:</span>  <span class="s">&#34;admin&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">FirstName</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">LastName</span><span class="p">:</span>  <span class="s">&#34;&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">				<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Timeout</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Type</span><span class="p">:</span> <span class="s">&#34;a&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">UpdateCacheTimeout</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">UpdateOnLaunch</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">UpdateOnProjectUpdate</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">URL</span><span class="p">:</span> <span class="s">&#34;someurl&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Verbosity</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">)</span>
+</span></span></code></pre></div><p>(from json to go) yes, I did it by hand.. with the help of the previous json-to-go tool, and an editor macro&hellip;<br>
+And only then I figured that I had to do the same thing in reverse; from go struct to json,
+to create the mocked api response
+and there was no macro I could think about to help me out.</p>
+<p>Who knows if golang provides some kind of utility..? &hellip;that maybe can help me generate json from
+go structs within the repos without disturbing main&hellip;? ..but then it should be module-aware, like
+a test.. naah. (TODO: is that a thing?)</p>
+<p>I already employed a <a href="https://go.dev/doc/tutorial/workspaces">workspace</a>
+(really.. all the documentation I needed was contained in the linked article) to develop
+my forked version of the library while I was using it in the actual client project;
+it was sufficient to add a module to the workspace that would use the awx-go lib
+(otherwise I would&rsquo;ve had to copy all the types within the api resposne type struct..),
+copy paste the initialized expected api response struct, and then marshal it&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">main</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;encoding/json&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;time&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">awxgo</span> <span class="s">&#34;github.com/Colstuwjx/awx-go&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;fmt&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">expectCreateInventorySourceResponse</span> <span class="p">=</span> <span class="o">&amp;</span><span class="nx">awxgo</span><span class="p">.</span><span class="nx">InventorySource</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Source</span><span class="p">:</span> <span class="s">&#34;somesource&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">LastUpdated</span> <span class="p">:</span> <span class="kd">func</span><span class="p">()</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Time</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">							<span class="nx">t</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Parse</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339</span><span class="p">,</span> <span class="s">&#34;2018-08-13T01:59:47.160127Z&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">							<span class="k">return</span> <span class="nx">t</span>
+</span></span><span class="line"><span class="cl">						<span class="p">}(),</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">Status</span><span class="p">:</span> <span class="s">&#34;somestatus&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="c1">/// all that stuff...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">str</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">expectCreateInventorySourceResponse</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">fmt</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Error marshaling!&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">fmt</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">str</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Go run the module.. and I had the json that the mock server was ought to pass.</p>
+<p>So the <a href="https://github.com/Colstuwjx/awx-go/pull/38/files">pull request</a> is now ready.<br>
+not afraid of github diffs anymore..</p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/golang">golang</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

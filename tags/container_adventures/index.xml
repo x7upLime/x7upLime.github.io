@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>container_adventures on andrewdomain Blog</title>
+    <link>/tags/container_adventures/</link>
+    <description>Recent content in container_adventures on andrewdomain Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 23 Jan 2023 15:17:23 +0200</lastBuildDate>
+    <atom:link href="/tags/container_adventures/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Container Adventures 4</title>
+      <link>/posts/container-adventures4/</link>
+      <pubDate>Mon, 23 Jan 2023 15:17:23 +0200</pubDate>
+      <guid>/posts/container-adventures4/</guid>
+      <description>I know this is part 4 of an incomplete list of articles&amp;hellip;&#xA;part 3 and 2 are on my todolist..&#xA;This whole thing happened after the currently unpublished &amp;ldquo;container adventures 3&amp;rdquo;,&#xA;and gave birth to those foolish junior prs/issues on kubernetes/minikube&#xA;#15678 ca3&#xA;#15696 ca3&#xA;#15677 ca3 - the issue.. but the discussion is on slack&#xA;#15491 ca3 &amp;ndash; not able to rebase + change in workflow&#xA;#15697 the create-volume bug</description>
+    </item>
+    <item>
+      <title>Container Adventures 1</title>
+      <link>/posts/container-adventures1/</link>
+      <pubDate>Tue, 22 Nov 2022 22:44:11 +3100</pubDate>
+      <guid>/posts/container-adventures1/</guid>
+      <description>Since this is the first post.. I may start by saying that this will be a series documenting my learning process for containers/golang.&#xA;I&amp;rsquo;m finding out about myself, that I tend to implement the head-first approach when I have no clear ideas about what I&amp;rsquo;m doing.. That would mean that I&amp;rsquo;ll definitely (when not bothering the community.. or the community not answering me) be drawing conclusions and answering the conclusions that I drew myself.</description>
+    </item>
+  </channel>
+</rss>

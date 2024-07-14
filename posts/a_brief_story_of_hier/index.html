@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>A_brief_story_of_hier - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Some of the vicissitudes around the changes in the filesystem hierarchy
+in major Linux distributions from 2011 to today. /usr-merge and bin/sbin
+unification are the changes that have been taken into consideration.
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="A_brief_story_of_hier" />
+<meta property="og:description" content="Some of the vicissitudes around the changes in the filesystem hierarchy
+in major Linux distributions from 2011 to today. /usr-merge and bin/sbin
+unification are the changes that have been taken into consideration.
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/a_brief_story_of_hier/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-01-07T21:33:38+02:00" />
+<meta property="article:modified_time" content="2024-01-07T21:33:38+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="A_brief_story_of_hier"/>
+<meta name="twitter:description" content="Some of the vicissitudes around the changes in the filesystem hierarchy
+in major Linux distributions from 2011 to today. /usr-merge and bin/sbin
+unification are the changes that have been taken into consideration.
+"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">A_brief_story_of_hier</h1>
+			<div class="meta">Posted on Jan 7, 2024</div>
+		</div>
+		
+
+		<section class="body">
+			<p>Recently Fedora opened
+<a href="https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin">this curious Change proposal</a>
+about the unification of the <strong>/bin</strong> and <strong>/sbin</strong> paths.</p>
+<p>The news was welcomed by the community with short oneline sentences, that didn&rsquo;t help
+me understand the connotations of that proposal so I thought about
+using the occasion to do some little research to make light on this matter&hellip;</p>
+<p>What I found out is that Fedora was not the first distro to implement this choice,
+but was one of the first ones to start this 10+ years old discussion about
+reforming the filesystem hierarchy under Linux, which now is
+reaching a more advanced state.</p>
+<p>For several reasons and necessities, the structure of the filesystems that
+host the binaries and libraries had changed on all the major GNU/Linux distributions,
+after long and painful internal work, to provide
+a much cleaner structure and easier administration,
+with the possible side effect of leaving behind the needs of some users,
+that will probably migrate towards other systems.</p>
+<blockquote>
+<p>NOTE for the reader:<br>
+When I&rsquo;m talking about &ldquo;the directories&rdquo;, or &ldquo;those directories&rdquo;, or.. you got it.
+I&rsquo;m probably referring to <strong>bin</strong>, <strong>sbin</strong>, and <strong>lib</strong>,
+no matter if placed under <strong>/</strong> or under <strong>/usr</strong>.</p>
+</blockquote>
+<h2 id="compliance">compliance</h2>
+<p>I think I should start by making it very clear that a Linux-based system is an animal of its own kind.
+Linux distributions are not conventional UNIX(SUS-compliant) or POSIX or whatever kind of systems.
+<strong>They&rsquo;re just Linux systems</strong>.</p>
+<p>Linux systems pick only the best/most fitted aspects of each specification
+and incorporate it, while not being 100% compliant with the whole.. maybe sometimes
+compliance is optionally added etc&hellip; But as a general rule, each Linux distro
+could very easily be very different from the others.</p>
+<p>The whole ecosystem of Linux distros is kept together
+thanks to <strong>some conventions</strong>,
+that can be more or less technically enforced,
+which become standards.
+So that in the meantime there is plenty of room for each one
+to express their own idea on how the system should work.</p>
+<h3 id="man-7-hier">man 7 hier</h3>
+<p>One example of an almost-standardized aspect of Linux distros
+that kinda survived over the years, is the <strong>FHS (Filesystem Hierarchy Standard)</strong>
+that is maintained by the Linux Foundation.</p>
+<p>The FHS describes the purpose of each path in your filesystem,
+that your distro&rsquo;s maintainers have probably followed,
+and that won&rsquo;t probably hurt the responsible sysadmin to read.</p>
+<p><strong>man 7 hier</strong> is your local, system-specific (major version, &hellip;) reference
+for the version of the FHS specification that your system supports.
+Check out the <strong>STANDARDS</strong> section of the manpage to see exactly which version
+your system is supporting (on this day on Gentoo it&rsquo;s the 3.0 from March 2015),
+and while you&rsquo;re at it, check also the <strong>BUGS</strong> section
+to remind yourself that yes.. it is just a convention that is not really technically enforced.<br>
+Because theoretically, you could put your binaries in /etc, mount /home as a tmpfs,
+or cause whatever degree of mayhem that you wish.</p>
+<p>We&rsquo;re still (mainly) under GNU/Linux after all, where historically there has been
+an effort to guarantee to the user the maximum possible degree of freedom.</p>
+<h2 id="usr">/usr</h2>
+<p>For the rest of this article, we will see some vicissitudes around
+the bin, sbin, and lib* directories over the years.</p>
+<p>To do so, I will start from this chunky first table with descriptions
+that I&rsquo;ve copy/pasted from the (<strong>rather traditional</strong>) hier manpage itself,
+with the purpose of showing how those definitions change later on..</p>
+<table>
+<thead>
+<tr>
+<th>PATH</th>
+<th>descr</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/bin</td>
+<td>This  directory  contains  executable programs which are needed in single user mode and to bring the system up or repair it.</td>
+</tr>
+<tr>
+<td>/sbin</td>
+<td>Like  /bin, this directory holds commands needed to boot the system, but which are usually not executed by normal users.</td>
+</tr>
+<tr>
+<td>/lib*</td>
+<td>This directories should hold those shared libraries that are necessary to boot the system and to run the commands in the root filesystem. (EDIT: In this description we&rsquo;re gonna also include the architecture-specific variants of /lib (/lib32, /lib64, &hellip;) that serve the same purpose)</td>
+</tr>
+<tr>
+<td>/usr</td>
+<td>This directory is usually mounted from a separate partition.  It should hold only shareable, read-only  data,  so that it can be mounted by various machines running Linux.</td>
+</tr>
+<tr>
+<td>/usr/bin</td>
+<td>This  is  the  primary  directory  for executable programs.  Most programs executed by normal users which are not needed for booting or for repairing the system and which are not installed locally should be placed in  this  directory.</td>
+</tr>
+<tr>
+<td>/usr/sbin</td>
+<td>This  directory contains program binaries for system administration which are not essential for the boot process, for mounting /usr, or for system repair.</td>
+</tr>
+<tr>
+<td>/usr/lib*</td>
+<td>Object libraries, including dynamic libraries, plus some executables which usually are not invoked directly.  More complicated programs may have whole subdirectories there. (EDIT: same as before for the architecture-dependant.)</td>
+</tr>
+</tbody>
+</table>
+<p>The natural question here I think is:
+&ldquo;Why do we even have this distinction between those directories&rdquo;.
+At first glance, it seems like unnecessary overcomplication,
+after all, we&rsquo;re talking about the same entities.<br>
+And also: &ldquo;Why is this filesystem <strong>usually mounted from a separate partition</strong>??&rdquo;.</p>
+<p>Let&rsquo;s start by understanding better the purpose of the /usr filesystem,
+and equally importantly, where it even comes from.</p>
+<h3 id="split-usr">split-usr</h3>
+<p>There is a very interesting mail that people close to where the changes are made
+keep quoting as a reference to this phenomenon, which provides historical context.<br>
+I&rsquo;m talking about <a href="http://lists.busybox.net/pipermail/busybox/2010-December/074114.html">this mail</a>
+from the busybox ml.</p>
+<p>The argument is pretty clear: there were technical reasons that made
+this distinction necessary in the first place.</p>
+<blockquote>
+<pre tabindex="0"><code>When the operating system grew too big to fit on the first RK05 disk pack (their 
+root filesystem) they let it leak into the second one, which is where all the 
+user home directories lived (which is why the mount was called /usr).  They 
+replicated all the OS directories under there (/bin, /sbin, /lib, /tmp...)
+</code></pre></blockquote>
+<p>The same reasons that made us split the /usr (or split the /, depending
+on where you see it from), and adopt /bin and /sbin, with their relative
+dependencies located under /lib*, with the sole purpose of ensuring
+the mount of the partition where /usr was, at boot time,
+i.e. <strong>to bring the system from single-user mode, to multi-user mode</strong>
+(also check this <a href="https://fedoraproject.org/wiki/SysVinit_to_Systemd_Cheatsheet#Runlevels/targets">sysvinit to systemd translation</a>) .</p>
+<blockquote>
+<pre tabindex="0"><code>Of course they made rules about &#34;when the system first boots, it has to come up 
+enough to be able to mount the second disk on /usr, so don&#39;t put things like 
+the mount command /usr/bin or we&#39;ll have a chicken and egg problem bringing 
+the system up.&#34;
+...
+The /bin vs /usr/bin split (and all the others) is an artifact of this, a 
+1970&#39;s implementation detail
+</code></pre></blockquote>
+<p>You see that here is referred to as <strong>the /bin vs /usr/bin split</strong>,
+which we may call by the name of <strong>split-usr</strong>, but it would not be entirely correct.</p>
+<p>The term <strong>split-usr</strong> as used today, has a different meaning than the one used
+in this article and it probably has to do with the necessity of providing more
+distinction in the possible structure of a system in regard to its use of /usr
+(check <a href="#glossary">glossary</a>).
+It has to be said that this mail also comes from more than 10 years ago,
+while the pains of the upgrade, reorganizations, implementations,&hellip; are much more
+recent.</p>
+<p>==<strong>Why not physically place everything under /, instead of /usr</strong>==<br>
+Other distributions that detached from a standard filesystem specification
+like <a href="https://gobolinux.org/at_a_glance.html">GoboLinux</a> and others,
+do not have a /usr partition that contains the &ldquo;os&rdquo; and seem to not miss it.<br>
+By following the /usr pattern, as most Linuxes have historically done,
+we&rsquo;ve taken the same road as other UNIXes had,
+like SunOS that in 4.0.3 started adopting a readonly /usr filesystem,
+and Oracle Solaris, that from version 11 started symlinking for
+compatibility purposes, the relative directories under /
+to their counterparts in /usr, where the actual system is.</p>
+<p>The fact that we have &ldquo;the operating system&rdquo;, i.e. the static
+part of it composed of all the binaries and libraries,
+that shouldn&rsquo;t vary between hosts with the same version, under
+a certain filesystem different from root, opens the doors
+to interesting scenarios like:</p>
+<ul>
+<li>a simple readonly mount of /usr for security reasons.</li>
+<li>the easier backup of /usr before upgrades.</li>
+<li>the share of /usr between hosts (e.g. using a network share).</li>
+<li>centralized update of this static part, by sharing it.</li>
+</ul>
+<p>Following those logics, We could host some tiny Linux boxes that require
+very few resources, by having a rw / with all the
+(this is a recurring expression) <strong>site specific</strong>
+files and configurations and sharing a common /usr between all of them.</p>
+<p>==<strong>do we need a split-usr configuration to accomplish this?</strong>==<br>
+Good question, from the article above the answer is pretty clear.
+The message of it is that we clearly maintained unnecessary complexity
+for decades, only because &ldquo;if it works, don&rsquo;t touch it!&rdquo;.
+For most scenarios, this mechanism is completely unnecessary
+and for many people working on Linux, this possibility is also unknown.
+From my personal experience, you can easily see huge
+virtualization-based infrastructures, where Linux boxes
+have a really simple filesystem separation:
+/var/log separated is a good practice that not everybody follows,
+but not go as far as mounting /usr ro.</p>
+<p>This is often not enough to make a change of that magnitude,
+the condition of &ldquo;if it works, don&rsquo;t touch it!&rdquo; must fail, and it kinda of does.</p>
+<p>The article that goes by the title
+<a href="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken/">Booting without /usr is broken</a>
+does a good job of explaining one of the reasons why the <strong>split-usr mechanism</strong>
+is mostly defective on modern distros.</p>
+<blockquote>
+<pre tabindex="0"><code>Quite a number of programs these days hook themselves 
+into the early boot process at various stages. 
+A popular way to do this is for example via udev rules. 
+The binaries called from these rules are sometimes located on /usr/bin, 
+or link against libraries in /usr/lib, or use data files from /usr/share. 
+If these rules fail udev will proceed with the next one, 
+however later on applications will then not properly detect
+these udev devices or features of these devices.
+</code></pre></blockquote>
+<p>Another very important reason that is recurrently mentioned in the mlists,
+and briefly outlined in this other article on freedesktop.org, which goes
+by the title of <a href="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge/">The case for the /usr merge</a>,
+is that software nowadays is too complex.</p>
+<p>If software A is mainly built with feature A in mind and
+depends on library A, based on the consensus of the community,
+gets packaged with support for feature X,
+with the relative dependency on library X,
+then it is the maintainer&rsquo;s burden (if aware of the distinction)
+to engage with the rest of the community to find a way to put library X,
+that was previously situated on /usr/lib, into /lib,
+as a vital dependency of software A, that could be used to
+bring up /usr during the early boot stages
+(Check dependencies for the software on your machine with <code>ldd $(which &lt;BINARY_NAME&gt;)</code>
+to have a clearer idea about this).<br>
+Moreover, the developer of the upstream software (which is not related
+to your distro&rsquo;s organization), is not aware of the Linux-specific /usr-split
+mechanism, and for that matter, the maintainer&rsquo;s job (the one who is aware of
+the /usr-split) gets more complicated; it has also been said on various
+mailing lists, that testing such mechanism (/usr-split) is rather complicated.</p>
+<p>In conclusion of this topic, those mentioned above
+have proven to be fairly common issues
+in all distros, and with all init systems
+(<a href="https://www.mail-archive.com/debian-devel@lists.debian.org/msg337190.html">ref</a>),
+we could say that the <strong>split-usr mechanism</strong> has not
+been well maintained throughout the decades.</p>
+<p>It could be the case to look for a better solution.</p>
+<p>The dilemma is: either we choose to repackage most distros
+in the classic early-days-UNIX way to repair split-usr,
+or we accept the current state of things:</p>
+<ul>
+<li>binaries are too complex</li>
+<li>boot-time service startup dependencies issues</li>
+<li>upstream probably doesn&rsquo;t care about our concerns</li>
+</ul>
+<p>and from now on we unanimously treat distributions
+in the same way most users have been treating them before,
+effectively making the whole system much easier to maintain and administer.</p>
+<h3 id="merged-usr">merged-usr</h3>
+<p>The conversation starting from <a href="https://lwn.net/Articles/477541/">this reply</a>
+for the <strong>&ldquo;The case for the /usr merge&rdquo;</strong> article on lwn.net,
+shows some very interesting points about why the initrd can be used as a
+more reliable, easier to maintain, and generally modern solution,
+as opposed to the split-usr mechanism to bring the system up.</p>
+<p>At this point, one could also think that if we decide to use the initrd for this
+purpose, maintaining the <strong>split-usr mechanism</strong> itself is a duplication of effort.</p>
+<p>So the proposed direction is clear: to move <strong>everything</strong>,
+i.e. &ldquo;the directories&rdquo; that leaked out of /usr (see note at the top),
+inside /usr again, effectively having <strong>&ldquo;the whole os&rdquo;</strong> on that filesystem.
+The difference here, with the previous split setup,
+is that <strong>if</strong> /usr is not on the same partition as /,
+the mount has to be taken care of by the initrd,
+instead of by the directories in /.</p>
+<p>As freedesktop.org&rsquo;s articles and some other posts pointed out,
+the adoption of an operating system <strong>entirely</strong> placed under /usr,
+arguably favors the easier maintenance of those use case
+shown above, like the shareable /usr.
+The only difference is that the mount process has to happen inside
+the initramfs and be transparent for the system during the boot phase,
+to avoid falling into those chicken-and-egg and dependency issues.</p>
+<blockquote>
+<p><strong>FROM</strong>
+: mounting the operating system during boot
+using the tools found in /bin and /sbin,
+i.e. relying on the split-usr mechanism (and how well it has been maintained).</p>
+<p><strong>TO</strong>
+: mounting the operating system before the actual boot,
+relying on the initrd and the content it has been packaged with.</p>
+<p>When I say boot, I mean the boot phase as seen by the init (..whatever init),
+which is different than the expression &ldquo;the boot process&rdquo;.
+The boot process is complex, and from the point at which the bootloader loads
+the kernel and the initrd, after some kernel work, the initrd takes control
+(there is a /sbin/init or /usr/sbin/init or whatever,
+inside the initrd that gets executed) and tries to accomplish its tasks.
+Only after the initrd decides so, control is given
+to the actual init daemon and to the final system,
+and <strong>it is this phase</strong> that has issues to work with
+the split-usr mechanism (check <a href="#glossary">glossary</a> again) for
+the issues discussed above.</p>
+</blockquote>
+<p>So systems can still have /usr on a separate partition,
+the only difference is that <strong>in that case</strong>, the initrd is
+<strong>the only supported way of bringing it up</strong>
+(check <a href="https://forums.gentoo.org/viewtopic-p-8591784.html?sid=6b728f7132cbd104e809c348de60b9c1#8591784">this</a>
+explanation).</p>
+<p>The initrd solution is however not perfect and 100% victimless.
+There have been complaints about those use cases
+that have to do with resource-contstrained environments.
+I&rsquo;m talking about the embedded world (<a href="https://lwn.net/Articles/670306/">ref</a>):
+where not having to maintain an initrd is a huge benefit.</p>
+<blockquote>
+<pre tabindex="0"><code>I have a system that boots in three seconds, which is fairly long
+already. Adding an initrd would extend that to five seconds and require
+a twenty minute rebuild of the initrd on upgrade.
+
+Using an initrd would also add new failure modes where the initrd build
+fails because of memory constraints (e.g. because an application process
+is stuck in D state and did not terminate when we entered the &#34;system
+update&#34; runlevel).
+</code></pre></blockquote>
+<p>The possible first wave of users leaving the community.</p>
+<p>Also, <a href="https://lwn.net/Articles/670324/">this here</a> is a very well-written
+collection of concerns about the change to merge-usr in Debian,
+being it a non-subscription-based supported distribution of GNU/Linux.</p>
+<blockquote>
+<pre tabindex="0"><code>I, for example, am afraid of having to merge /usr in existing systems
+during upgrades, causing repartitions to be necessary. I am afraid of
+partition layout suddenly not fitting any more during an upgrade,
+causing downtimes and customers considering to take the opportunity to
+migrate to a really supported enterprise distribution.
+
+And, I really don&#39;t want to have to adapt, test and verify scripts and
+backup schemes to changed partition layout. This will be necessary for
+new systems, and it is really a horror vision to have to do this for
+existing systems during upgrades.
+</code></pre></blockquote>
+<p>Other possible losses for the community.</p>
+<p>That I think is a valid point for those scenarios where we&rsquo;re updating/upgrading
+our operating systems in-place, instead of migrating the services
+deployed on them.<br>
+During the years, many poor-quality scripts could have been built
+by colleagues that maybe are not even part of the company anymore, not to talk
+about the upgrade process itself, where a lot of things could go wrong,
+depending on the degree of care that has been taken of that os,
+by the different people that have worked on it.<br>
+That is a scenario where a handful of administrators can easily not be able
+to face an important number of systems in such a situation.</p>
+<p>&hellip;</p>
+<p>The /usr-merge has already happened in probably all the major distros,
+with the relative distro-maintenance-pain and sysadmin-upgrade-pain.
+From this point on, so as not to leave things unfinished,
+it would be much easier to introduce new changes
+in order to apply further simplifications.</p>
+<h2 id="bin--sbin">bin &amp; sbin</h2>
+<p>During the same years of the first discussions
+about the /usr-merge, there were also
+<a href="https://lists.fedoraproject.org/pipermail/devel/2011-October/158845.html">discussions</a>
+about the purpose of the bin and sbin directories and their current state.</p>
+<p>In the ml post linked above, a couple of very interesting
+and enlightening points have been made, some similar to the ones for the /usr-merge:</p>
+<blockquote>
+<pre tabindex="0"><code>a) the split between sbin and bin requires psychic powers from
+   upstream developers:
+
+   The simple fact is that moving binaries between these dirs is really
+   hard, and thus developers in theory would need to know at the time
+   they first introduce a binary whether it *ever* might ever make sense to
+   invoke it as unprivileged user (because in that case the binary
+   belongs in /bin, not /sbin). History shows that more often than
+   not developers have placed their stuff in the wrong directory, see
+   /sbin/arp, /sbin/ifconfig, /usr/sbin/httpd and then there is no smart
+   way to fix things anymore since changing paths means breaking all hardcoded
+   scripts. And hardcoding paths in scripts is actually something we
+   encourage due to perfomance reasons. The net effect is that many
+   upstream developers unconditionally place their stuff in bin, and
+   never consider sbin at all which undermines the purpose of sbin
+   entirely (i.e. in systemd we do not stick a single binary in sbin,
+   since we cannot be sure for any of its tools that it will never
+   ever be useful for non-root users. and systemd is as low-level,
+   system-specific it can get).
+...
+f) splitting things up complicates stuff. If you want to keep things
+   separate you really need a good reason for that. We should always
+   focus on simplifiying things. And merging things into /usr does just
+   that: it drastically simplifies the complexities we have collected
+   over 30+ years of Unix heritage.
+
+g) given that some distros place certain binaries in other places than
+   others, merging the dirs has the big benefit that the four paths are
+   equivalent and scripts from other distros work on ours, regardless
+   where the other distros place their stuff
+</code></pre></blockquote>
+<p>Those above are the recurring &ldquo;binaries getting too complex&rdquo;,
+or &ldquo;we&rsquo;ve been using it like this as a majority, for a lot of time&rdquo; as before.
+But for this specific matter, there is also more.</p>
+<p>The &ldquo;bin vs. sbin separation&rdquo; is another mechanism that has probably not
+been maintained well throughout the decades.
+In modern distributions, you can easily find
+<code>PATH=/bin:/sbin:/usr/sbin:/usr/local/bin:/opt/bin:/everything</code>
+for all the users, which is not exactly a good practice as per
+the intended bin/sbin distinction..</p>
+<p>As claimed by Fedora&rsquo;s
+<a href="https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin">Changes/Unify bin and sbin</a>,
+there are many mechanisms for a normal user to gain privileges
+without them even knowing, and then its PATH already contains all the
+sbin variants for reasons like systemd&rsquo;s behavior
+of setting a PATH for all users and services that has both bins and sbins.
+This specific mechanism of systemd is quite intricate and rather than
+trying to find its functioning in systemd itself,
+it could be better looked at in an application-specific way.
+The <code>man 5 environment.d</code> on your system
+(or also <a href="https://www.freedesktop.org/software/systemd/man/latest/environment.d.html">here</a>)
+in the <strong>APPLICABILITY</strong> section, outlines the inner workings of this mechanism:</p>
+<blockquote>
+<pre tabindex="0"><code>       Environment variables exported by the user service manager are passed 
+       to any services started by that service manager. 
+       In particular, this may include services which run user shells. 
+       For example in the GNOME environment, the graphical terminal
+       emulator runs as the gnome-terminal-server.service user unit,
+       which in turn runs the user shell,  so that shell
+       will inherit environment variables exported by the user manager.
+       For other instances of the shell, not 
+       launched by the user service manager, the environment they
+       inherit is defined by the program that starts them. 
+       ...
+       Specifically, for ssh logins, the sshd(8) service builds
+       an environment that is a combination of variables forwarded from
+       the remote system and defined by sshd...
+       A graphical display session will have an analogous mechanism 
+       to define the environment. 
+       Note that some managers query the systemd user instance
+       for the exported environment and inject this configuration
+       into programs they start, 
+       using systemctl show-environment or the underlying D-Bus call.
+</code></pre></blockquote>
+<p>In my case for example, I do have a PATH variable defined inside
+/etc/environment.d/10-gentoo-env.conf (that has been put there by gentoo&rsquo;s env-update)
+which looks similar to <code>echo PATH=$PATH</code>.
+But then I also have it in /etc/profile.env,
+and also distros like fedora and derivates (rocky Linux, &hellip;)
+seem to have this logic entirely contained in /etc/profile.</p>
+<pre tabindex="0"><code># Path manipulation
+if [ &#34;$EUID&#34; = &#34;0&#34; ]; then
+    pathmunge /usr/sbin
+    pathmunge /usr/local/sbin
+else
+    pathmunge /usr/local/sbin after
+    pathmunge /usr/sbin after
+fi
+</code></pre><p>==<strong>why having PATH=everything is bad?</strong>==<br>
+Knowing the bin and sbin distinction, this can be seen as a bad practice.
+The community of <a href="https://www.gentoo.org/get-involved/irc-channels/">#gentoo-chat</a>
+has explained it like this to me (not the exact words):</p>
+<pre tabindex="0"><code> You don&#39;t want the normal user to have /sbin in its PATH.  
+ You maybe want only the root user to have /sbin in PATH.  
+ 
+ Nowadays is also very easy and quick to gain root privileges with sudo,
+ so at least normal users should be forced to write /sbin/something in full,
+ so that they also remember to think about what they&#39;re typing..
+ Because it would make sense for everything that is under /sbin, 
+ to be dangerous to the system if misused.
+ 
+ So...  
+ normal users having no /sbin in PATH, and
+ discouraging interactive root sessions with (e.g.) `sudo -i`.
+</code></pre><p>So ideally there should be a neat distinction between all the binaries that
+only root can execute, and those that are executable by all the users,
+but can we even do that given nowadays software?</p>
+<blockquote>
+<p>The categories of executables these days go beyond the split of
+&ldquo;thing a user can run&rdquo; and &ldquo;thing the admin can run&rdquo;. <a href="https://pagure.io/fesco/issue/3135#comment-890527">ref</a></p>
+</blockquote>
+<p>Personally, I&rsquo;d like to think more that
+<a href="https://discussion.fedoraproject.org/t/f40-change-proposal-unify-usr-bin-and-usr-sbin-system-wide/99853/16">this proposal</a>
+is the way to go; that is a more romantic way of seeing Linux.
+But then <a href="https://discussion.fedoraproject.org/t/f40-change-proposal-unify-usr-bin-and-usr-sbin-system-wide/99853/18">the reply to that</a>,
+is an amazingly well-painted portrait, of the world we&rsquo;re living in.
+I&rsquo;ll probably take this post as a future reference when I&rsquo;ll have to explain
+&ldquo;things that are happening in Linux&rdquo;.</p>
+<blockquote>
+<pre tabindex="0"><code>In the old times there was “root” and lusers, 
+the privilege separation was completely binary. 
+But some time in the 2.2 era, Linux implemented capabilities. 
+This means that you can be root, completely unprivileged, 
+or in one of the 1099511627774 intermediate states.
+...
+The interesting corollary is that all programs that
+are supposed to “run as root” must always treat 
+every individual operation as something 
+that can fail (because even if the process
+formally has privileges, MAC or something else 
+may prevent the operation) and must report such failure 
+in sufficient detail. It is not OK to say “we failed” or
+“not enough privileges, must be root”, because that is not
+enough to figure out what exactly failed. 
+In fact, the process may be root and still fail.
+</code></pre></blockquote>
+<p>The second paragraph is also a reference that one should come back to
+when their software is not behaving the way they thought it would.</p>
+<p>I could argue no more about the unification.</p>
+<h2 id="end">end</h2>
+<p>In the end, if you&rsquo;ve been thrown into a world where everything
+works differently than the way you&rsquo;re used to seeing them work,
+and you&rsquo;re expertise is abandoning you,
+I think it can be advantageous to be aware of freedesktop&rsquo;s
+<a href="https://www.freedesktop.org/wiki/Specifications/">efforts</a> to maintain
+compatibility between systems.</p>
+<p>Speaking of filesystem hierarchy specifically, I think it can help
+to give an occasional look when needed, to
+<a href="https://www.freedesktop.org/software/systemd/man/file-hierarchy.html">this manpage</a>,
+that you may find in your distro as <strong>man 7 file-hierarchy</strong>.</p>
+<p>This is the systemd-specific vision of the filesystem hierarchy under Linux,
+which is the defacto standard on systemd-based Linux distros
+and effectively changes the first table at the top of this article like so:</p>
+<table>
+<thead>
+<tr>
+<th>PATH</th>
+<th>descr</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/usr</td>
+<td>Vendor-supplied operating system resources. Usually read-only, but this is not required. Possibly shared between multiple hosts. This directory should not be modified by the administrator, except when installing or removing vendor-supplied packages.</td>
+</tr>
+<tr>
+<td>/usr/bin</td>
+<td>Binaries and executables for user commands that shall appear in the $PATH search path. It is recommended not to place binaries in this directory that are not useful for invocation from a shell (such as daemon binaries); these should be placed in a subdirectory of /usr/lib/ instead.</td>
+</tr>
+<tr>
+<td>/usr/lib</td>
+<td>Static, private vendor data that is compatible with all architectures (though not necessarily architecture-independent). Note that this includes internal executables or other binaries that are not regularly invoked from a shell. Such binaries may be for any architecture supported by the system. Do not place public libraries in this directory, use $libdir (see below), instead.</td>
+</tr>
+<tr>
+<td>/usr/lib/arch-id</td>
+<td>Location for placing dynamic libraries into, also called $libdir. Legacy locations of $libdir are /usr/lib/, /usr/lib64/. This directory should not be used for package-specific data, unless this data is architecture-dependent, too.</td>
+</tr>
+<tr>
+<td>/usr/sbin</td>
+<td>A compatibility symlink pointing to /usr/bin/, ensuring that scripts and binaries referencing these legacy paths correctly find their binaries.</td>
+</tr>
+<tr>
+<td>/bin</td>
+<td>A compatibility symlink pointing to /usr/bin/, ensuring that scripts and binaries referencing these legacy paths correctly find their binaries.</td>
+</tr>
+<tr>
+<td>/sbin</td>
+<td>A compatibility symlink pointing to /usr/bin/, ensuring that scripts and binaries referencing these legacy paths correctly find their binaries.</td>
+</tr>
+<tr>
+<td>/lib</td>
+<td>A compatibility symlink pointing to /usr/lib/, ensuring that scripts and binaries referencing these legacy paths correctly find their binaries.</td>
+</tr>
+<tr>
+<td>/lib64</td>
+<td>On some architecture ABIs, this compatibility symlink points to $libdir, ensuring that binaries referencing this legacy path correctly find their dynamic loader. This symlink only exists on architectures whose ABI places the dynamic loader in this path.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="my-personal-view-about-this">my personal view about this</h3>
+<p>For how small those changes seem from the outside,
+they proved to be big, and their reasons and implications are numerous.</p>
+<p>With the initrd solution to the split-usr issue,
+an attempt has been made to modernize a workflow
+that is generally less and less seen in the wild,
+to not lose the creative part of the community,
+while maintaining the bigger part happy.</p>
+<p>Replicating and maintaining artistic configurations such as
+shared ro /usr via NFS over an entire Linux infrastructure,
+requires inventiveness, effort in testing and maintenance,
+biting your tongue when the manager buys from a bad vendor,&hellip;
+and generally, time, which is an extremely pricy asset.
+One thing that I couldn&rsquo;t stop thinking is that by &ldquo;playing&rdquo; with your
+os that way, you are treating your Linux as something that barely exists
+anymore in the majority of cases.</p>
+<p>Nowadays, especially in the enterprise community, you are much more used
+to virtual machines than baremetal, and more and more used to containers
+than virtual machines, and generally more used to treating a Linux
+system as something <strong>atomic</strong>, and as <strong>disposable</strong> as possible.</p>
+<p>What happened is that today we don&rsquo;t really have
+technical constraints like disk size; on the contrary,
+today GBs of disk are quite cheap, compared to the cost in time
+related to the maintenance of an infrastructure as complex as the ones described above.</p>
+<p>You usually don&rsquo;t want to maintain,
+because that is where the effort comes (and the man-months go).<br>
+What you <strong>usually</strong> want to do instead, is maintain only the least possible,
+vital, information on a git server,
+and deploy your stuff from there using some kind of automation.<br>
+<strong>When it breaks, you usually toss it, you don&rsquo;t try to repair it</strong>.<br>
+To do that, it is required to deal with many different technologies,
+a task that is much easier to accomplish if you are part of a team
+with a lot of people, each with its own specialization.
+In that scenario, at the end of the day, you will find yourself with a lot more
+machines in your infrastructure, that have a cost in resources,
+but are a lot easier to administer.</p>
+<p>That is a very DevOps way of seeing it I think,
+which apparently is not exactly aligned to the UNIX way.</p>
+<h1 id="glossary">Glossary</h1>
+<dl>
+<dt><strong>unmerged-usr</strong> (sometimes also referred to as <strong>split-usr</strong>, see ref 3 below)</dt>
+<dd>A system with bin, sbin, lib* directories, that exist under the /
+and under the /usr filesystem in parallel, and with distinct content.
+<blockquote>
+<p>The intended use for this is the use of the bin,sbin,lib* directories
+under /, to mount the rest of the filesystem, including /usr where most of the
+binaries/services are (a.k.a. most of the os).<br>
+i.e. / can be used in single-user mode, to bring the system to multi-user mode.</p>
+</blockquote>
+</dd>
+<dt><strong>merged-usr</strong></dt>
+<dd>The bin, sbin, and lib* directories are physically located under the /usr filesystem.
+They have correspondents under /, which are symlinks provided for compatibility.</dd>
+<dt><strong>split-usr</strong></dt>
+<dd>A system whose /usr directory is still unpopulated or needs to be mounted during
+the boot phase. This could also mean a merged-usr system, whose /usr partition was not mounted
+before init kicks in and the processes start.
+<blockquote>
+<p>The /usr filesystem does not have to be on the same partition as /,<br>
+but <strong>it will have</strong> to be mounted during early boot by the initramfs,<br>
+so that when the actual init starts, /usr is ready. (<a href="https://lwn.net/Articles/670139/">check</a>)</p>
+</blockquote>
+</dd>
+</dl>
+<p>REFERENCES:<br>
+[1] <a href="https://lists.freedesktop.org/archives/systemd-devel/2022-April/047673.html">https://lists.freedesktop.org/archives/systemd-devel/2022-April/047673.html</a><br>
+[2] <a href="https://lists.freedesktop.org/archives/systemd-devel/2023-February/048831.html">https://lists.freedesktop.org/archives/systemd-devel/2023-February/048831.html</a><br>
+[3] <a href="http://lists.busybox.net/pipermail/busybox/2010-December/074114.html">http://lists.busybox.net/pipermail/busybox/2010-December/074114.html</a></p>
+<h1 id="faq---can-i-boot-a-systemd-based-linux-distribution-without-an-initrd">FAQ - Can I boot a systemd-based Linux distribution without an initrd?</h1>
+<p>This one is actually a real thing that I heard :) (not in question form tho).</p>
+<p>As stated by different articles and posts, the changes
+about the /usr filesystem are orthogonal to systemd.</p>
+<blockquote>
+<p>Look for harald in
+<a href="https://lists.fedoraproject.org/pipermail/devel/2011-October/158594.html">this post</a>.<br>
+<a href="https://lists.fedoraproject.org/pipermail/devel/2011-October/158818.html">tl;dr</a></p>
+</blockquote>
+<p>The answer: There is no need to have an initramfs if you don&rsquo;t use a separate /usr,
+i.e. if you don&rsquo;t need to mount /usr at boot time.</p>
+<h1 id="references">References</h1>
+<p>Maybe there are things that I wasn&rsquo;t able to catch,
+or I didn&rsquo;t immediately see the implications.
+Also, interesting points have been made in those resources, that are unrelated
+to the main topic of this article.<br>
+Anyway, here is a list of very interesting material to dig into.</p>
+<p><strong>Blogs,forums,mls</strong></p>
+<ul>
+<li><a href="https://lists.fedoraproject.org/pipermail/devel/2011-October/158599.html">UsrMove feature &ndash; fedora-devel ml</a></li>
+<li><a href="https://lists.archlinux.org/pipermail/arch-dev-public/2012-January/022463.html">Keeping stuff in /bin, /lib, /sbin &ndash; arch-dev-public ml</a></li>
+<li><a href="https://lists.archlinux.org/pipermail/arch-dev-public/2012-March/022625.html">merge /bin, /sbin, /lib into /usr/bin and /usr/lib &ndash; arch-dev-public ml</a></li>
+<li><a href="https://lists.opensuse.org/archives/list/factory@lists.opensuse.org/thread/TY5JGIXJ2QBFPQBTJEBRUH5UTWV3LJC3/#5NS6UWFLFTFTKDPYI4VV5UKFY6N5UTQC">Proposal for 12.2, move all binaries under /usr &ndash; opensuse ml</a></li>
+<li><a href="https://lists.freedesktop.org/archives/systemd-devel/2022-April/047673.html">Dropping split-usr/unmerged-usr support &ndash; systemd-devel ml</a></li>
+<li><a href="https://news.ycombinator.com/item?id=22614731">Understanding the bin, sbin, usr/bin, usr/sbin split (2010) (busybox.net) &ndash; Hacker News</a></li>
+<li><a href="https://lists.fedoraproject.org/pipermail/devel/2011-October/158845.html">UsrMove feature &ndash; fedora-devel </a></li>
+<li><a href="https://lwn.net/Articles/670071/">Preparing for a merged /usr in Debian &ndash; lwn.net</a></li>
+<li><a href="https://lwn.net/Articles/477467/">The case for the /usr merge &ndash; lwn </a></li>
+<li><a href="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken/">separate-usr-is-broken &ndash; freedesktop.org</a></li>
+<li><a href="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge/">The case for the /usr Merge &ndash; freedesktop.org</a></li>
+<li><a href="https://www.mail-archive.com/debian-devel@lists.debian.org/msg337225.html">support for merged /usr in Debian &ndash; debian-devel</a></li>
+<li><a href="https://forums.gentoo.org/viewtopic-p-8591835.html">/usr merge what? &ndash; forums.gentoo.org</a></li>
+<li><a href="https://lwn.net/Articles/477473/">The case for the /usr merge &ndash;lwm.net </a></li>
+<li><a href="https://fedoraproject.org/wiki/Features/UsrMove">Features/UsrMove &ndash; fedora wiki</a></li>
+<li><a href="https://discussion.fedoraproject.org/t/f40-change-proposal-unify-usr-bin-and-usr-sbin-system-wide/99853">F40 Change Proposal: Unify /usr/bin and /usr/sbin (System-Wide) &ndash; discussion.fedora</a></li>
+<li><a href="https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin">Changes/Unify bin and sbin &ndash; fedora wiki</a></li>
+</ul>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/sys">sys</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>
