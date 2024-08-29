@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Container Adventures 2 - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="My personal learning experience, started by trying to make sense of a minikube error;
+it later took me to the &#34;how the &#39;Driver&#39;-thing works in minikube&#34;, 
+and thorought the process of creation of the container image....
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="Container Adventures 2" />
+<meta property="og:description" content="My personal learning experience, started by trying to make sense of a minikube error;
+it later took me to the &#34;how the &#39;Driver&#39;-thing works in minikube&#34;, 
+and thorought the process of creation of the container image....
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/container-adventures2/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2023-01-23T15:17:23+02:00" />
+<meta property="article:modified_time" content="2023-01-26T22:51:42+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Container Adventures 2"/>
+<meta name="twitter:description" content="My personal learning experience, started by trying to make sense of a minikube error;
+it later took me to the &#34;how the &#39;Driver&#39;-thing works in minikube&#34;, 
+and thorought the process of creation of the container image....
+"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">Container Adventures 2</h1>
+			<div class="meta">Posted on Jan 23, 2023</div>
+		</div>
+		
+
+		<section class="body">
+			<p>This whole thing happened after a couple of more trials in the container world
+and gave birth to those foolish junior prs/issues on <a href="https://github.com/kubernetes/minikube">kubernetes/minikube</a><br>
+<a href="https://github.com/kubernetes/minikube/pull/15678">#15678</a> ca3<br>
+<a href="https://github.com/kubernetes/minikube/pull/15696">#15696</a> ca3<br>
+<a href="https://github.com/kubernetes/minikube/issues/15677">#15677</a> ca3 - the issue.. but the discussion is on slack<br>
+<a href="https://github.com/kubernetes/minikube/pull/15491">#15491</a> ca3 &ndash; not able to rebase + change in workflow<br>
+<a href="https://github.com/kubernetes/minikube/issues/15697">#15697</a> the create-volume bug<br>
+<a href="https://github.com/kubernetes/minikube/pull/15699">#15699</a> the create-volume proposed solution</p>
+<h2 id="solving-container-creation-issues-for-the-podman-driver----minikube">Solving container creation issues for the podman driver &ndash; minikube</h2>
+<p>We were able to merge the newly proposed <a href="https://github.com/kubernetes/minikube/pull/15678#issuecomment-1404612732">cache-invalidation mechanism</a>
+(not yet actually.. it&rsquo;s still under discussion <a href="https://github.com/kubernetes/minikube/issues/15677">here</a>, but mainly on slack), based on
+contentDigest.. so now the kicBase&rsquo;s cache interactions should be something more generic.</p>
+<p>Thanks to this, we were able to define a new entity called kicDriver, which is something
+more generic than docker or podman.. its a mechanism that takes the common aspects of both
+(maybe in the future will also support something else.. who knows) and put them to
+work, all this packed in a generic interface.</p>
+<p>Now.. even tho the cache phase of <code>minikube start</code> seems to work with the podman driver,
+only the rootful podman makes it past the container creation phase..<br>
+For the rootless podman we have the following:</p>
+<pre tabindex="0"><code>😄  minikube v1.28.0 on whatever..
+    ▪ MINIKUBE_ROOTLESS=true
+✨  Using the podman driver based on user configuration
+📌  Using rootless Podman driver
+👍  Starting control plane node minikube in cluster minikube
+🚜  Pulling base image to minikube cache ...
+💾  Downloading Kubernetes v1.25.3 preload ...
+    &gt; preloaded-images-k8s-v18-v1...:  406.99 MiB / 406.99 MiB  100.00% 56.74 M
+    &gt; gcr.io/k8s-minikube/kicbase...:  404.96 MiB / 404.96 MiB  100.00% 22.67 M
+⌛  Loading KicDriver with base image ...
+🔥  Creating podman container (CPUs=2, Memory=8000MB) ...
+✋  Stopping node &#34;minikube&#34;  ...
+🔥  Deleting &#34;minikube&#34; in podman ...
+🤦  StartHost failed, but will try again: creating host: create: creating: create kic node: container name &#34;minikube&#34;: log: 2023-01-23T15:07:03.883512000+02:00 + grep -qw cpu /sys/fs/cgroup/cgroup.controllers
+2023-01-23T15:07:03.884604000+02:00 + echo &#39;ERROR: UserNS: cpu controller needs to be delegated&#39;
+2023-01-23T15:07:03.884740000+02:00 ERROR: UserNS: cpu controller needs to be delegated
+2023-01-23T15:07:03.884872000+02:00 + exit 1: container exited unexpectedly
+🔥  Creating podman container (CPUs=2, Memory=8000MB) ...
+😿  Failed to start podman container. Running &#34;minikube delete&#34; may fix it: creating host: create: creating: setting up container node: creating volume for minikube container: podman volume create minikube --label name.minikube.sigs.k8s.io=minikube --label created_by.minikube.sigs.k8s.io=true: exit status 125
+stdout:
+
+stderr:
+Error: volume with name minikube already exists: volume already exists
+
+
+❌  Exiting due to GUEST_PROVISION: Failed to start host: creating host: create: creating: setting up container node: creating volume for minikube container: podman volume create minikube --label name.minikube.sigs.k8s.io=minikube --label created_by.minikube.sigs.k8s.io=true: exit status 125
+stdout:
+
+stderr:
+Error: volume with name minikube already exists: volume already exists
+</code></pre><p>the &ldquo;rootless podman&rdquo; being:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ minikube config <span class="nb">set</span> driver podman
+</span></span><span class="line"><span class="cl">$ minikube config <span class="nb">set</span> container-runtime crio
+</span></span><span class="line"><span class="cl">$ minikube config <span class="nb">set</span> rootless <span class="nb">true</span>
+</span></span></code></pre></div><p>There&rsquo;s something wrong with the container creation step with this driver config..
+I&rsquo;ve got no Idea how this mechanism is like.. I only worked with the kicBase cache so far.<br>
+I&rsquo;d start by looking at how the mechanism as a whole looks like;<br>
+so where does the &ldquo;Creating podman container&hellip;&rdquo; come from?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1">## from root of minikube..</span>
+</span></span><span class="line"><span class="cl">$ git grep -n <span class="s2">&#34;Creating %s container&#34;</span> <span class="c1">## this produced no output</span>
+</span></span><span class="line"><span class="cl">$ git grep -n <span class="s2">&#34;Creating&#34;</span> <span class="c1">## this obviously produced a whole lot of it..</span>
+</span></span></code></pre></div><p>I looked for a container reference inside the output.. but eventually stumbled upon this:</p>
+<pre tabindex="0"><code>pkg/minikube/machine/start.go:399:		out.Step(style.StartingVM, &#34;Creating {{.driver_name}} {{.machine_type}} (CPUs={{.number_of_cpus}}, Memory={{.memory_size}}MB) ...&#34;, out.V{&#34;driver_name&#34;: cfg.Driver, &#34;number_of_cpus&#34;: cfg.CPUs, &#34;memory_size&#34;: cfg.Memory, &#34;machine_type&#34;: machineType})
+</code></pre><p>which is part of this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">showHostInfo</span><span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="nx">cfg</span> <span class="nx">config</span><span class="p">.</span><span class="nx">ClusterConfig</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="c1">//  ......
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">driver</span><span class="p">.</span><span class="nf">IsKIC</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// TODO:medyagh add free disk space on docker machine
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="nx">register</span><span class="p">.</span><span class="nx">Reg</span><span class="p">.</span><span class="nf">SetStep</span><span class="p">(</span><span class="nx">register</span><span class="p">.</span><span class="nx">CreatingContainer</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">out</span><span class="p">.</span><span class="nf">Step</span><span class="p">(</span><span class="nx">style</span><span class="p">.</span><span class="nx">StartingVM</span><span class="p">,</span> <span class="s">&#34;Creating {{.driver_name}} {{.machine_type}} (CPUs={{.number_of_cpus}}, Memory={{.memory_size}}MB) ...&#34;</span><span class="p">,</span> <span class="nx">out</span><span class="p">.</span><span class="nx">V</span><span class="p">{</span><span class="s">&#34;driver_name&#34;</span><span class="p">:</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">,</span> <span class="s">&#34;number_of_cpus&#34;</span><span class="p">:</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">CPUs</span><span class="p">,</span> <span class="s">&#34;memory_size&#34;</span><span class="p">:</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Memory</span><span class="p">,</span> <span class="s">&#34;machine_type&#34;</span><span class="p">:</span> <span class="nx">machineType</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>which in called by this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createHost</span><span class="p">(</span><span class="nx">api</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span><span class="p">,</span> <span class="nx">cfg</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">ClusterConfig</span><span class="p">,</span> <span class="nx">n</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Node</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">klog</span><span class="p">.</span><span class="nf">Infof</span><span class="p">(</span><span class="s">&#34;createHost starting for %q (driver=%q)&#34;</span><span class="p">,</span> <span class="nx">n</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// config read and some other setup stuff...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">timedCreateHost</span><span class="p">(</span><span class="nx">h</span><span class="p">,</span> <span class="nx">api</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">StartHostTimeout</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;creating host&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">klog</span><span class="p">.</span><span class="nf">Infof</span><span class="p">(</span><span class="s">&#34;duration metric: libmachine.API.Create for %q took %s&#34;</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Since</span><span class="p">(</span><span class="nx">cstart</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span> <span class="o">==</span> <span class="nx">driver</span><span class="p">.</span><span class="nx">SSH</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">showHostInfo</span><span class="p">(</span><span class="nx">h</span><span class="p">,</span> <span class="o">*</span><span class="nx">cfg</span><span class="p">)</span> <span class="c1">// &lt;-- where we come from..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">postStartSetup</span><span class="p">(</span><span class="nx">h</span><span class="p">,</span> <span class="o">*</span><span class="nx">cfg</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">h</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;post-start&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>Now I bet that we&rsquo;re finding the string with the crying cat 😿 of the minikube&rsquo;s problematic output inside postSartSetup().</p>
+<p>&hellip;<br>
+and I was wrong.. it happens.<br>
+Logs from ~/.minikube/logs/lastStart.txt(where all the klog.Whatever() goes..) show that we didn&rsquo;t even ever reached postSartSetup().<br>
+we getting closer..</p>
+<p>What if look backwards, starting from the error itself.. I know a package that has the cat for sure:<br>
+pkg/minikube/style/style.go<br>
+and the crying cat is&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/style/style.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Config is a map of style name to style struct
+</span></span></span><span class="line"><span class="cl"><span class="c1">// For consistency, ensure that emojis added render with the same width across platforms.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">var</span> <span class="nx">Config</span> <span class="p">=</span> <span class="kd">map</span><span class="p">[</span><span class="nx">Enum</span><span class="p">]</span><span class="nx">Options</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Embarrassed</span><span class="p">:</span>      <span class="p">{</span><span class="nx">Prefix</span><span class="p">:</span> <span class="s">&#34;🤦  &#34;</span><span class="p">,</span> <span class="nx">LowPrefix</span><span class="p">:</span> <span class="nx">LowWarning</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">Sad</span><span class="p">:</span>              <span class="p">{</span><span class="nx">Prefix</span><span class="p">:</span> <span class="s">&#34;😿  &#34;</span><span class="p">},</span> <span class="c1">// this one
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Shrug</span><span class="p">:</span>            <span class="p">{</span><span class="nx">Prefix</span><span class="p">:</span> <span class="s">&#34;🤷  &#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>and <a href="https://github.com/golang/tools/tree/master/gopls">gopls</a> shows me that it is used only in a bunch of places..</p>
+<pre tabindex="0"><code>pkg/minikube/style/style_enum.go
+79: 	Sad
+cmd/minikube/cmd/config/profile.go
+84: 			out.ErrT(style.Sad, `Error loading profile config: {{.error}}`, out.V{&#34;error&#34;: err})
+93: 					out.ErrT(style.Sad, `Error while setting kubectl current context :  {{.error}}`, out.V{&#34;error&#34;: err})
+cmd/minikube/cmd/delete.go
+542: 			out.ErrT(style.Sad, deletionError.Error())
+554: 	out.ErrT(style.Sad, &#34;Multiple errors deleting profiles&#34;)
+cmd/minikube/cmd/update-context.go
+51: 			out.ErrT(style.Sad, `Error while setting kubectl current context:  {{.error}}`, out.V{&#34;error&#34;: err})
+pkg/minikube/node/start.go
+713: 	out.ErrT(style.Sad, `Failed to start {{.driver}} {{.driver_type}}. Running &#34;{{.cmd}}&#34; may fix it: {{.error}}`, out.V{&#34;driver&#34;: drv, &#34;driver_type&#34;: driver.MachineType(drv), &#34;cmd&#34;: mustload.ExampleCmd(cc.Name, &#34;delete&#34;), &#34;error&#34;: err})
+pkg/minikube/out/out.go
+422: 	msg := Sprintf(style.Sad, &#34;If the above advice does not help, please let us know:&#34;)
+pkg/minikube/service/service.go
+291: 		out.Styled(style.Sad, &#34;service {{.namespace_name}}/{{.service_name}} has no node port&#34;, out.V{&#34;namespace_name&#34;: namespace, &#34;service_name&#34;: service})
+pkg/minikube/style/style.go
+100: 	Sad:              {Prefix: &#34;😿  &#34;},
+</code></pre><p>It&rsquo;s pretty obvious we&rsquo;re looking at pkg/minikube/node/start.go&rsquo;s</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/node/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// startHostInternal starts a new minikube host using a VM or None
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">startHostInternal</span><span class="p">(</span><span class="nx">api</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span><span class="p">,</span> <span class="nx">cc</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">ClusterConfig</span><span class="p">,</span> <span class="nx">n</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Node</span><span class="p">,</span> <span class="nx">delOnFail</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="kt">bool</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span></code></pre></div><p>It&rsquo;s not exactly were we&rsquo;re coming from. Let me figure it:</p>
+<pre tabindex="0"><code>   pkg/minikube/node/start.go -- Provision()
+        |
+        | The furthest it makes sense to go..
+        | This is alredy familiar, it calls beginDownloadKicBaseImage()
+        | which is basically the kicBase cache logic
+        | we tinkered with last time.
+        | 
+        |
+    pkg/minikube/node/start.go -- startMachine()
+                     |
+                     |
+                     -----&gt; pkg/minikube/node/start.go -- startHostInternal()
+					 
+</code></pre><p>The one for the createHost() we ended up before the cat search is only a couple of layers deeper.<br>
+So we could draw this:</p>
+<pre tabindex="0"><code>
+=   pkg/minikube/node/start.go -- Provision()
+		 |
+		 |
+=   pkg/minikube/node/start.go -- startMachine()
+		 |
+		 |		 
+=   pkg/minikube/node/start.go -- startHostInternal()
+         |
+         |
+=        .		                            ===😿====the=cat=error===
+         |                                                      ^
+         |                                                      |
+=   pkg/minikube/machine/start.go -- StartHost()                |
+         |                                                      |
+         |                                                      |
+=   pkg/minikube/machine/start.go -- createHost()    ------------ error is here.
+         |
+         |
+=   pkg/minikube/machine/start.go -- showHostInfo()
+         |
+         |
+=   =====🔥==the=creation=message======
+</code></pre><p>&hellip;I&rsquo;m never drawing that again..<br>
+It could have been much easier to stacktrace it inside a debugger and copypaste it.</p>
+<p>We&rsquo;re seeing the flame &lsquo;cause the code for creaHost().. before doing anything, calls showHostInfo()
+for every driver except the ssh one.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createHost</span><span class="p">(</span><span class="nx">api</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span><span class="p">,</span> <span class="nx">cfg</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">ClusterConfig</span><span class="p">,</span> <span class="nx">n</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Node</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ... 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span> <span class="o">!=</span> <span class="nx">driver</span><span class="p">.</span><span class="nx">SSH</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">showHostInfo</span><span class="p">(</span><span class="kc">nil</span><span class="p">,</span> <span class="o">*</span><span class="nx">cfg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="c1">// this was the part I previously marked
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="c1">// &#34;config read and some other setup stuff...&#34;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">def</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">Driver</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span> <span class="c1">// cfg.Driver -&gt; just a string
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">def</span><span class="p">.</span><span class="nf">Empty</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;unsupported/missing driver: %s&#34;</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">dd</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">def</span><span class="p">.</span><span class="nf">Config</span><span class="p">(</span><span class="o">*</span><span class="nx">cfg</span><span class="p">,</span> <span class="o">*</span><span class="nx">n</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;config&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">data</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">dd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;marshal&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">api</span><span class="p">.</span><span class="nf">NewHost</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;new host&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nf">postStartValidations</span><span class="p">(</span><span class="nx">h</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span></code></pre></div><p>That registry.Driver(cfg.Driver) seems interesting..<br>
+and I already heard the term &ldquo;registry&rdquo; from a conversation on <a href="https://minikube.sigs.k8s.io/community/">kübernetes&rsquo;s slack</a>,
+in regard of an issue..</p>
+<h3 id="theregistry">the&quot;registry&quot;</h3>
+<p>That <code>def := registry.Driver(string)</code> function.. just takes a driver name and instantiates
+the base of it; later, when def.Config() is called.. some specific configuration magic starts to happen:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">/// pkg/minikube/registry/global.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Driver gets a named driver from the global registry
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">Driver</span><span class="p">(</span><span class="nx">name</span> <span class="kt">string</span><span class="p">)</span> <span class="nx">DriverDef</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">globalRegistry</span><span class="p">.</span><span class="nf">Driver</span><span class="p">(</span><span class="nx">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// globalRegistry being a var: -- pkg/minikube/registry/global.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">var</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// globalRegistry is a globally accessible driver registry
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">globalRegistry</span> <span class="p">=</span> <span class="nf">newRegistry</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/registry.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">newRegistry</span><span class="p">()</span> <span class="o">*</span><span class="nx">driverRegistry</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">driverRegistry</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">drivers</span><span class="p">:</span>        <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">DriverDef</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">driversByAlias</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">DriverDef</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// and that globalRegistry.Driver(string):
+</span></span></span><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/registry.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Driver returns a driver given a name
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">driverRegistry</span><span class="p">)</span> <span class="nf">Driver</span><span class="p">(</span><span class="nx">name</span> <span class="kt">string</span><span class="p">)</span> <span class="nx">DriverDef</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nx">lock</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nx">r</span><span class="p">.</span><span class="nx">lock</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">def</span><span class="p">,</span> <span class="nx">ok</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">drivers</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">ok</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">def</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// Check if we have driver def with name as alias
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">return</span> <span class="nx">r</span><span class="p">.</span><span class="nx">driversByAlias</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>I think now we know that a driver &ldquo;registry&rdquo; is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/registry.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">driverRegistry</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">drivers</span>        <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">DriverDef</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">driversByAlias</span> <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="nx">DriverDef</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">lock</span>           <span class="nx">sync</span><span class="p">.</span><span class="nx">RWMutex</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Just a fancy struct that contains the <a href="https://minikube.sigs.k8s.io/docs/drivers/">drivers</a> that minikube supports?<br>
+Hyphotesis supported by the fact that DriverDef == &hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/registry.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// DriverDef defines how to initialize and load a machine driver
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">DriverDef</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Name of the machine driver. It has to be unique.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Name</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Alias contains a list of machine driver aliases. Each alias should also be unique.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Alias</span> <span class="p">[]</span><span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Config is a function that emits a configured driver struct
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Config</span> <span class="nx">Configurator</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Init is a function that initializes a machine driver, if built-in to the minikube binary
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Init</span> <span class="nx">Loader</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Status returns the installation status of the driver
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Status</span> <span class="nx">StatusChecker</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Default is whether this driver is selected by default or not (opt-in).
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Default</span> <span class="kt">bool</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Priority returns the prioritization for selecting a driver by default.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">Priority</span> <span class="nx">Priority</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>We even have a doc.go file for that package registry:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/doc.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="cm">/*
+</span></span></span><span class="line"><span class="cl"><span class="cm">Copyright 2018 The Kubernetes Authors All rights reserved.
+</span></span></span><span class="line"><span class="cl"><span class="cm">
+</span></span></span><span class="line"><span class="cl"><span class="cm">Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+</span></span></span><span class="line"><span class="cl"><span class="cm">you may not use this file except in compliance with the License.
+</span></span></span><span class="line"><span class="cl"><span class="cm">You may obtain a copy of the License at
+</span></span></span><span class="line"><span class="cl"><span class="cm">
+</span></span></span><span class="line"><span class="cl"><span class="cm">    http://www.apache.org/licenses/LICENSE-2.0
+</span></span></span><span class="line"><span class="cl"><span class="cm">
+</span></span></span><span class="line"><span class="cl"><span class="cm">Unless required by applicable law or agreed to in writing, software
+</span></span></span><span class="line"><span class="cl"><span class="cm">distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+</span></span></span><span class="line"><span class="cl"><span class="cm">WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+</span></span></span><span class="line"><span class="cl"><span class="cm">See the License for the specific language governing permissions and
+</span></span></span><span class="line"><span class="cl"><span class="cm">limitations under the License.
+</span></span></span><span class="line"><span class="cl"><span class="cm">*/</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// This package contains the registry to enable a docker machine driver to be used
+</span></span></span><span class="line"><span class="cl"><span class="c1">// in minikube.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">registry</span>
+</span></span></code></pre></div><p>Hmmmm&hellip; that&rsquo;s not much to work with.<br>
+From this one.. it looks like an <a href="https://docs.docker.com/registry/">image registry</a>.. which doesn&rsquo;t seem the case.</p>
+<p>Fortunately.. there is a drvs folder here, that could enlighten us;<br>
+Let me show you a piece of tree:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># from pkg/minikube/registry</span>
+</span></span><span class="line"><span class="cl">$ tree drvs/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">drvs/
+</span></span><span class="line"><span class="cl">├── docker
+</span></span><span class="line"><span class="cl">│   ├── docker.go
+</span></span><span class="line"><span class="cl">│   └── docker_test.go
+</span></span><span class="line"><span class="cl">├── init.go
+</span></span><span class="line"><span class="cl">├── kvm2
+</span></span><span class="line"><span class="cl">│   ├── doc.go
+</span></span><span class="line"><span class="cl">│   └── kvm2.go
+</span></span><span class="line"><span class="cl">├── podman
+</span></span><span class="line"><span class="cl">│   └── podman.go
+</span></span><span class="line"><span class="cl">├── ssh
+</span></span><span class="line"><span class="cl">│   └── ssh.go
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">└── vmwarefusion
+</span></span><span class="line"><span class="cl">    ├── doc.go
+</span></span><span class="line"><span class="cl">    └── vmwarefusion.go
+</span></span></code></pre></div><p>Nothing could be more enlightning<br>
+The init.go is just a list of supported drivers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/registry/drvs/init.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kn">package</span> <span class="nx">drvs</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Register all of the drvs we know of
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/docker&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/hyperkit&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/hyperv&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/kvm2&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/none&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/parallels&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/podman&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/qemu2&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/ssh&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/virtualbox&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/vmware&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">_</span> <span class="s">&#34;k8s.io/minikube/pkg/minikube/registry/drvs/vmwarefusion&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>And each driver (say docker..) has an init() call for its package, that initializes its content inside the &ldquo;registry&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">init</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">Register</span><span class="p">(</span><span class="nx">registry</span><span class="p">.</span><span class="nx">DriverDef</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Name</span><span class="p">:</span>     <span class="nx">driver</span><span class="p">.</span><span class="nx">Docker</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Config</span><span class="p">:</span>   <span class="nx">configure</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Init</span><span class="p">:</span>     <span class="kd">func</span><span class="p">()</span> <span class="nx">drivers</span><span class="p">.</span><span class="nx">Driver</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">kic</span><span class="p">.</span><span class="nf">NewDriver</span><span class="p">(</span><span class="nx">kic</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">OCIBinary</span><span class="p">:</span> <span class="nx">oci</span><span class="p">.</span><span class="nx">Docker</span><span class="p">})</span> <span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Status</span><span class="p">:</span>   <span class="nx">status</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Default</span><span class="p">:</span>  <span class="kc">true</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">Priority</span><span class="p">:</span> <span class="nx">registry</span><span class="p">.</span><span class="nx">HighlyPreferred</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">	<span class="p">});</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nb">panic</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;register failed: %v&#34;</span><span class="p">,</span> <span class="nx">err</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>cobraish..<br>
+No point in showing Register() code.. it is clear that it just puts a DriverDef inside the globalRegistry.<br>
+So that the picture is as follows:</p>
+<ul>
+<li>pkg/minikube/registry contains the global &ldquo;registry&rdquo;.. even tho we don&rsquo;t directly interact with it,
+it contains all the drivers.</li>
+<li>the various pkg/minikube/registry/drvs are initialized by putting their driver inside the global
+registry at runtime, using init() functions; as if they&rsquo;re already there.. and any new driver can hook
+to the global registry by just initing its pkg.</li>
+</ul>
+<h2 id="back-to-our-bug">back to our bug..</h2>
+<p>So we&rsquo;re back to pkg/minikube/machine/start.go - createHost()</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createHost</span><span class="p">(</span><span class="nx">api</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span><span class="p">,</span> <span class="nx">cfg</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">ClusterConfig</span><span class="p">,</span> <span class="nx">n</span> <span class="o">*</span><span class="nx">config</span><span class="p">.</span><span class="nx">Node</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ... 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="nx">def</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">Driver</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span> <span class="c1">// DONE
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">def</span><span class="p">.</span><span class="nf">Empty</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;unsupported/missing driver: %s&#34;</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">dd</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">def</span><span class="p">.</span><span class="nf">Config</span><span class="p">(</span><span class="o">*</span><span class="nx">cfg</span><span class="p">,</span> <span class="o">*</span><span class="nx">n</span><span class="p">)</span>  <span class="c1">// &lt;&lt; could be a source of issues..
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		                            <span class="c1">// keeping in mind and returning later
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;config&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">data</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">Marshal</span><span class="p">(</span><span class="nx">dd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;marshal&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">h</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">api</span><span class="p">.</span><span class="nf">NewHost</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span>  <span class="c1">// &lt;&lt; HERE.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;new host&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="nf">postStartValidations</span><span class="p">(</span><span class="nx">h</span><span class="p">,</span> <span class="nx">cfg</span><span class="p">.</span><span class="nx">Driver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span></code></pre></div><p>Even tho we&rsquo;re failing on timedCreateHost() inside k8s.io/minikube/pkg/minikube/machine.createHost,
+I&rsquo;d still give api.NewHost() a look.. just to have a little more info about the process,</p>
+<p>&hellip;</p>
+<p>Oh.. that&rsquo;s not minikube. That api.NewHost() comes from <a href="https://github.com/docker/machine">&ldquo;github.com/docker/machine/libmachine&rdquo;</a>.<br>
+That&rsquo;s part of the &ldquo;docker-centric&rdquo; heritage of minikube :)</p>
+<p>Looking at this and at the description for the docker machine repo&hellip;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libmachine/libmachine.go @ https://github.com/docker/machine.git
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">api</span> <span class="o">*</span><span class="nx">Client</span><span class="p">)</span> <span class="nf">NewHost</span><span class="p">(</span><span class="nx">driverName</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">rawDriver</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">driver</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">api</span><span class="p">.</span><span class="nx">clientDriverFactory</span><span class="p">.</span><span class="nf">NewRPCClientDriver</span><span class="p">(</span><span class="nx">driverName</span><span class="p">,</span> <span class="nx">rawDriver</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// config and filepaths
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="c1">// based on the provided driverName.. 
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="p">},</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>It could be that the bigger picture is as follows..</p>
+<ul>
+<li>We&rsquo;re instantiating/finding our &ldquo;node&rdquo;, which could be any kind of thing depending on the driver we&rsquo;re choosing:
+<ul>
+<li>container image for the KiC(Kübernetes in Container) workflow</li>
+<li>vm image for the qemu/virtualbox/whatever..</li>
+<li>a generic host with an sshd installed</li>
+<li>our localhost that we aknowledged has everything in place to kick kübernetes</li>
+</ul>
+</li>
+<li>We&rsquo;re creating a &ldquo;docker machine&rdquo;(giving docker capabilities to the vm/remote-host) if needed
+but this should require some discrimination based on the driver</li>
+<li>We&rsquo;re operating our cluster by the means provided by the Driver interface</li>
+</ul>
+<p>But its too soon for that..</p>
+<p>We could be looking at another chunk we would have to undockerize from minikube.<br>
+Just because of the fact that we&rsquo;re using podman driver, we would have no need for a docker machine in the first place.</p>
+<p>&hellip;</p>
+<p>My bad.. it&rsquo;s not actually <a href="https://github.com/docker/machine.git">https://github.com/docker/machine.git</a> that has been archived..<br>
+THis quite interesting reading <a href="https://github.com/docker/machine/issues/4537">here</a>
+and a sum of it <a href="https://github.com/docker/machine/issues/4894">here</a>, that described what happened.<br>
+And what happened is that now we&rsquo;re</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// go.mod
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="nf">replace</span><span class="p">(</span>		
+</span></span><span class="line"><span class="cl">	<span class="nx">github</span><span class="p">.</span><span class="nx">com</span><span class="o">/</span><span class="nx">docker</span><span class="o">/</span><span class="nx">machine</span> <span class="p">=&gt;</span> <span class="nx">github</span><span class="p">.</span><span class="nx">com</span><span class="o">/</span><span class="nx">machine</span><span class="o">-</span><span class="nx">drivers</span><span class="o">/</span><span class="nx">machine</span> <span class="nx">v0</span><span class="mf">.7.1</span><span class="o">-</span><span class="mf">0.20211105063445</span><span class="o">-</span><span class="mi">78</span><span class="nx">a84df85426</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>And in fact using <a href="https://github.com/machine-drivers/machine">https://github.com/machine-drivers/machine</a> which seems still maintaned; maintaining its fork relationship.</p>
+<h4 id="undockerize">undockerize?</h4>
+<p>Back to our timedCreateHost(); we can see that it&rsquo;s only a timer around an api.Create() call.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/start.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">timedCreateHost</span><span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span> <span class="nx">api</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span><span class="p">,</span> <span class="nx">t</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">timeout</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="kt">bool</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">time</span><span class="p">.</span><span class="nf">Sleep</span><span class="p">(</span><span class="nx">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">timeout</span> <span class="o">&lt;-</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">createFinished</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="kt">bool</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="kd">var</span> <span class="nx">err</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">err</span> <span class="p">=</span> <span class="nx">api</span><span class="p">.</span><span class="nf">Create</span><span class="p">(</span><span class="nx">h</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">createFinished</span> <span class="o">&lt;-</span> <span class="kc">true</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">select</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">createFinished</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="c1">// Wait for all the logs to reach the client
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="nx">time</span><span class="p">.</span><span class="nf">Sleep</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;create&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">	<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">timeout</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;create host timed out in %f seconds&#34;</span><span class="p">,</span> <span class="nx">t</span><span class="p">.</span><span class="nf">Seconds</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>where the used driver is LocalClient (<a href="https://github.com/go-delve/delve">dlv</a> told me..)<br>
+That doesn&rsquo;t seem part of the docker machine..<br>
+Even grepping the docker machine repo doensn&rsquo;t show anything&hellip; would it be possible that..?<br>
+Yes.. grepping shows that minikube implements its own libmachine api interface.</p>
+<p>Struct and Create() method look like this.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/client.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// LocalClient is a non-RPC implementation
+</span></span></span><span class="line"><span class="cl"><span class="c1">// of the libmachine API
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">type</span> <span class="nx">LocalClient</span> <span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">certsDir</span>  <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">storePath</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">	<span class="o">*</span><span class="nx">persist</span><span class="p">.</span><span class="nx">Filestore</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">legacyClient</span> <span class="nx">libmachine</span><span class="p">.</span><span class="nx">API</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">flock</span>        <span class="o">*</span><span class="nx">fslock</span><span class="p">.</span><span class="nx">Lock</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Create creates the host
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">api</span> <span class="o">*</span><span class="nx">LocalClient</span><span class="p">)</span> <span class="nf">Create</span><span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">klog</span><span class="p">.</span><span class="nf">Infof</span><span class="p">(</span><span class="s">&#34;LocalClient.Create starting&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">start</span> <span class="o">:=</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Now</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">	<span class="k">defer</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">klog</span><span class="p">.</span><span class="nf">Infof</span><span class="p">(</span><span class="s">&#34;LocalClient.Create took %s&#34;</span><span class="p">,</span> <span class="nx">time</span><span class="p">.</span><span class="nf">Since</span><span class="p">(</span><span class="nx">start</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">def</span> <span class="o">:=</span> <span class="nx">registry</span><span class="p">.</span><span class="nf">Driver</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nx">DriverName</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">def</span><span class="p">.</span><span class="nf">Empty</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;driver %q does not exist&#34;</span><span class="p">,</span> <span class="nx">h</span><span class="p">.</span><span class="nx">DriverName</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">def</span><span class="p">.</span><span class="nx">Init</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// NOTE: This will call provision.DetectProvisioner
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">return</span> <span class="nx">api</span><span class="p">.</span><span class="nx">legacyClient</span><span class="p">.</span><span class="nf">Create</span><span class="p">(</span><span class="nx">h</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">steps</span> <span class="o">:=</span> <span class="p">[]</span><span class="kd">struct</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">name</span> <span class="kt">string</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">f</span>    <span class="kd">func</span><span class="p">()</span> <span class="kt">error</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}{</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;bootstrapping certificates&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="kd">func</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// Lock is needed to avoid race condition in parallel Docker-Env test because issue #10107.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>				<span class="c1">// CA cert and client cert should be generated atomically, otherwise might cause bad certificate error.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>				<span class="nx">lockErr</span> <span class="o">:=</span> <span class="nx">api</span><span class="p">.</span><span class="nx">flock</span><span class="p">.</span><span class="nf">LockWithTimeout</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">				<span class="k">if</span> <span class="nx">lockErr</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;failed to acquire bootstrap client lock: %v &#34;</span> <span class="o">+</span> <span class="nx">lockErr</span><span class="p">.</span><span class="nf">Error</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">				<span class="p">}</span>
+</span></span><span class="line"><span class="cl">				<span class="k">defer</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="nx">lockErr</span> <span class="p">=</span> <span class="nx">api</span><span class="p">.</span><span class="nx">flock</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">					<span class="k">if</span> <span class="nx">lockErr</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">						<span class="nx">klog</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;failed to release bootstrap cert client lock: %v&#34;</span><span class="p">,</span> <span class="nx">lockErr</span><span class="p">.</span><span class="nf">Error</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">					<span class="p">}</span>
+</span></span><span class="line"><span class="cl">				<span class="p">}()</span>
+</span></span><span class="line"><span class="cl">				<span class="nx">certErr</span> <span class="o">:=</span> <span class="nx">cert</span><span class="p">.</span><span class="nf">BootstrapCertificates</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nf">AuthOptions</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">certErr</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;precreate&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">.</span><span class="nx">PreCreateCheck</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;saving&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="kd">func</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">api</span><span class="p">.</span><span class="nf">Save</span><span class="p">(</span><span class="nx">h</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;creating&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">.</span><span class="nx">Create</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;waiting&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="kd">func</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="k">if</span> <span class="nx">driver</span><span class="p">.</span><span class="nf">BareMetal</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">.</span><span class="nf">DriverName</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">				<span class="p">}</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nx">mcnutils</span><span class="p">.</span><span class="nf">WaitFor</span><span class="p">(</span><span class="nx">drivers</span><span class="p">.</span><span class="nf">MachineInState</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">,</span> <span class="nx">state</span><span class="p">.</span><span class="nx">Running</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;provisioning&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="kd">func</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">				<span class="c1">// Skippable because we don&#39;t reconfigure Docker?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>				<span class="k">if</span> <span class="nx">driver</span><span class="p">.</span><span class="nf">BareMetal</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">.</span><span class="nf">DriverName</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">					<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">				<span class="p">}</span>
+</span></span><span class="line"><span class="cl">				<span class="k">return</span> <span class="nf">provisionDockerMachine</span><span class="p">(</span><span class="nx">h</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">step</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">steps</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">step</span><span class="p">.</span><span class="nf">f</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">step</span><span class="p">.</span><span class="nx">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>My editor is having a hard time navigating the machine mod.. I&rsquo;m cloning and using it inside the workspace.</p>
+<p>Each of the <em>steps</em> in the prev function, gives a name and a function to call;</p>
+<p>Some steps use anonymous minikube functions, some use docker-machine ones, some rely on the underlying driver[!]</p>
+<p>This driver is a docker-machine interface that has a wide range of implementation to fulfill any kind of need;
+in particular, here&rsquo;s only some of the implementations..</p>
+<pre tabindex="0"><code>drivers/amazonec2/amazonec2.go
+64: type Driver struct {
+drivers/azure/azure.go
+67: type Driver struct {
+drivers/digitalocean/digitalocean.go
+23: type Driver struct {
+drivers/errdriver/error.go
+11: type Driver struct {
+drivers/exoscale/exoscale.go
+26: type Driver struct {
+drivers/fakedriver/fakedriver.go
+11: type Driver struct {
+drivers/google/google.go
+17: type Driver struct {
+drivers/hyperv/hyperv.go
+19: type Driver struct {
+drivers/openstack/openstack.go
+21: type Driver struct {
+drivers/rackspace/rackspace.go
+13: type Driver struct {
+drivers/virtualbox/virtualbox.go
+46: type Driver struct {
+drivers/vmwarevcloudair/vcloudair.go
+24: type Driver struct {
+drivers/vmwarevsphere/vsphere.go
+47: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/drivers/kic/kic.go
+53: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/drivers/kvm/kvm.go
+38: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/drivers/none/none.go
+47: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/drivers/qemu/qemu.go
+53: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/drivers/ssh/ssh.go
+46: type Driver struct {
+/home/andrew/go/src/wspace-container/minikube/pkg/minikube/tests/driver_mock.go
+33: type MockDriver struct {
+</code></pre><p>This project aimed at bringing docker <em>anywhere</em>..<br>
+Minikube itself implements the driver in a number of chunks..<br>
+by pkg/drivers subpackages to be precise (kvm, kic, ..)</p>
+<p>There&rsquo;s really no need to show the struct of factory method.. the locations are above; let&rsquo;s keep going.</p>
+<p>We don&rsquo;t seem to customize the precreate step function.. so we&rsquo;re defaulting to docker-machine&rsquo;s BaseDriver,
+which is that simple:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// libmachine/drivers/base.go @ machine
+</span></span></span><span class="line"><span class="cl"><span class="c1">// PreCreateCheck is called to enforce pre-creation steps
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">d</span> <span class="o">*</span><span class="nx">BaseDriver</span><span class="p">)</span> <span class="nf">PreCreateCheck</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>I&rsquo;m interested particularly in the &ldquo;create&rdquo; step,
+which we&rsquo;re failing with rootless podman.<br>
+I would guess that the driver implementation that we&rsquo;re looking at is the &ldquo;Kübernetes In Container&rdquo;(a.k.a. KiC) driver..</p>
+<p>We&rsquo;re looking at <code>pkg/drivers/kic/kic.go - func(d *Driver) Create() error</code>.<br>
+That&rsquo;s already a start.. stepping into it to see exactly where it breaks.</p>
+<h4 id="one-step-forward">one step forward(?)</h4>
+<p>Found it!<br>
+A big chunk of minikube seems to be putting together this long sh command:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman run -d -t --privileged --security-opt <span class="nv">seccomp</span><span class="o">=</span>unconfined --tmpfs /tmp --tmpfs /run -v /lib/modules:/lib/modules:ro --hostname minikube --name minikube --label created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label name.minikube.sigs.k8s.io<span class="o">=</span>minikube --label role.minikube.sigs.k8s.io<span class="o">=</span> --label mode.minikube.sigs.k8s.io<span class="o">=</span>minikube --network minikube --ip 192.168.49.2 --volume minikube:/var:exec --memory<span class="o">=</span>8000mb -e <span class="nv">container</span><span class="o">=</span>podman --expose <span class="m">8443</span> --publish<span class="o">=</span>127.0.0.1::8443 --publish<span class="o">=</span>127.0.0.1::22 --publish<span class="o">=</span>127.0.0.1::2376 --publish<span class="o">=</span>127.0.0.1::5000 --publish<span class="o">=</span>127.0.0.1::32443 gcr.io/k8s-minikube/kicbase-builds:v0.0.36-1673540226-15630
+</span></span></code></pre></div><p>No joking.. it&rsquo;s actually a cli run(it could&rsquo;ve been either this or witchcraft):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/oci/oci.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// CreateContainer creates a container with &#34;docker/podman run&#34;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createContainer</span><span class="p">(</span><span class="nx">ociBin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">image</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">opts</span> <span class="o">...</span><span class="nx">createOpt</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">rr</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="nx">args</span><span class="o">...</span><span class="p">));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// full error: docker: Error response from daemon: Range of CPUs is from 0.01 to 8.00, as there are only 8 CPUs available.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;Range of CPUs is from&#34;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;CPUs available&#34;</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// CPUs available
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>			<span class="k">return</span> <span class="nx">ErrCPUCountLimit</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// example: docker: Error response from daemon: Address already in use.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;Address already in use&#34;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">ErrIPinUse</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><p>That.. if fired by hand.. returns:<br>
+<code>Error: unable to find network with name or ID minikube: network not found</code><br>
+We&rsquo;re one step closer..</p>
+<p>I remember this being a step prior to container creation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/kic.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">d</span> <span class="o">*</span><span class="nx">Driver</span><span class="p">)</span> <span class="nf">Create</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">gateway</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">oci</span><span class="p">.</span><span class="nf">CreateNetwork</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">OCIBinary</span><span class="p">,</span> <span class="nx">networkName</span><span class="p">,</span> <span class="nx">d</span><span class="p">.</span><span class="nx">NodeConfig</span><span class="p">.</span><span class="nx">Subnet</span><span class="p">,</span> <span class="nx">staticIP</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">msg</span> <span class="o">:=</span> <span class="s">&#34;Unable to create dedicated network, this might result in cluster IP change after restart: {{.error}}&#34;</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">args</span> <span class="o">:=</span> <span class="nx">out</span><span class="p">.</span><span class="nx">V</span><span class="p">{</span><span class="s">&#34;error&#34;</span><span class="p">:</span> <span class="nx">err</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">staticIP</span> <span class="o">!=</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">exit</span><span class="p">.</span><span class="nf">Message</span><span class="p">(</span><span class="nx">reason</span><span class="p">.</span><span class="nx">IfDedicatedNetwork</span><span class="p">,</span> <span class="nx">msg</span><span class="p">,</span> <span class="nx">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">out</span><span class="p">.</span><span class="nf">WarningT</span><span class="p">(</span><span class="nx">msg</span><span class="p">,</span> <span class="nx">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// ...
+</span></span></span></code></pre></div><p>Stepping into it..<br>
+Seeing that CreateNetwork() seems to flow perfectly.. There is one thing that don&rsquo;t convince me: the oci.TryCreatedockernetwork()
+function.. which takes an ociBin as parameter, so it should be good.. but we&rsquo;re failing on finding a resource that this function
+seems to be responsible for. I&rsquo;m thinking about an error condition that is not checked for.</p>
+<p>There we go..<br>
+At the end of the flow for oci.TryCreatedockernetwork(), the thing that happens is the same for the createContainer() thing:<br>
+an sh exec of the ociBin; This is what&rsquo;s happening when all is initialized during runtime.</p>
+<pre tabindex="0"><code>| &gt; k8s.io/minikube/pkg/drivers/kic/oci.tryCreateDockerNetwork() ./pkg/drivers/kic/oci/network_create.go:146 (PC: 0x145927a)
+   141:				args = append(args, fmt.Sprintf(&#34;com.docker.network.driver.mtu=%d&#34;, mtu))
+   142:			}
+   143:		}
+   144:		args = append(args, fmt.Sprintf(&#34;--label=%s=%s&#34;, CreatedByLabelKey, &#34;true&#34;), fmt.Sprintf(&#34;--label=%s=%s&#34;, ProfileLabelKey, name), name)
+   145:	
+=&gt; 146:		rr, err := runCmd(exec.Command(ociBin, args...))
+   147:		if err != nil {
+   148:			klog.Errorf(&#34;failed to create %s network %s %s with gateway %s and mtu of %d: %v&#34;, ociBin, name, subnet.CIDR, subnet.Gateway, mtu, err)
+   149:			// Pool overlaps with other one on this address space
+   150:			if strings.Contains(rr.Output(), &#34;Pool overlaps&#34;) {
+   151:				return nil, ErrNetworkSubnetTaken
+(dlv) p args
+[]string len: 8, cap: 10, [
+	&#34;network&#34;,
+	&#34;create&#34;,
+	&#34;--driver=bridge&#34;,
+	&#34;--subnet=192.168.49.0/24&#34;,
+	&#34;--gateway=192.168.49.1&#34;,
+	&#34;--label=created_by.minikube.sigs.k8s.io=true&#34;,
+	&#34;--label=name.minikube.sigs.k8s.io=minikube&#34;,
+	&#34;minikube&#34;,
+]
+</code></pre><p>So we should be more than able to do the same thing by hand:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman network create -driver<span class="o">=</span>bridge --subnet<span class="o">=</span>192.168.49.0/24 --gateway<span class="o">=</span>192.168.49.1 --label<span class="o">=</span>created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label<span class="o">=</span>name.minikube.sigs.k8s.io<span class="o">=</span>minikube minikube
+</span></span></code></pre></div><p>Which fails with: <code>Error: unsupported driver river=bridge: invalid argument</code><br>
+But apparently minikube is not detecting it;<br>
+the code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/oci/network_create.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">tryCreateDockerNetwork</span><span class="p">(</span><span class="nx">ociBin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">subnet</span> <span class="o">*</span><span class="nx">network</span><span class="p">.</span><span class="nx">Parameters</span><span class="p">,</span> <span class="nx">mtu</span> <span class="kt">int</span><span class="p">,</span> <span class="nx">name</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="nx">net</span><span class="p">.</span><span class="nx">IP</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="nx">rr</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="nx">args</span><span class="o">...</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">klog</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;failed to create %s network %s %s with gateway %s and mtu of %d: %v&#34;</span><span class="p">,</span> <span class="nx">ociBin</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">subnet</span><span class="p">.</span><span class="nx">CIDR</span><span class="p">,</span> <span class="nx">subnet</span><span class="p">.</span><span class="nx">Gateway</span><span class="p">,</span> <span class="nx">mtu</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// Pool overlaps with other one on this address space
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;Pool overlaps&#34;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">ErrNetworkSubnetTaken</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;failed to allocate gateway&#34;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;Address already in use&#34;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">ErrNetworkGatewayTaken</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="s">&#34;is being used by a network interface&#34;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">ErrNetworkGatewayTaken</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;create %s network %s %s with gateway %s and MTU of %d: %w&#34;</span><span class="p">,</span> <span class="nx">ociBin</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">subnet</span><span class="p">.</span><span class="nx">CIDR</span><span class="p">,</span> <span class="nx">subnet</span><span class="p">.</span><span class="nx">Gateway</span><span class="p">,</span> <span class="nx">mtu</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">gateway</span><span class="p">,</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>What happens is that, at the end of the runCmd(), err is nil; so we&rsquo;re returning as everything&rsquo;s ok.</p>
+<p>&hellip;</p>
+<p>Oh.. my bad.. I was missing a &lsquo;-&rsquo; in &lsquo;-driver=bridge&rsquo;: it should&rsquo;ve been &lsquo;- -driver=bridge&rsquo;.<br>
+Hmmm.. it works..<br>
+Network&rsquo;s there:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman network ls
+</span></span><span class="line"><span class="cl">NETWORK ID    NAME        DRIVER
+</span></span><span class="line"><span class="cl">5086431107ca  minikube    bridge
+</span></span><span class="line"><span class="cl">2f259bab93aa  podman      bridge
+</span></span></code></pre></div><p>Then also the createContainer() command works..</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman run -d -t --privileged --security-opt <span class="nv">seccomp</span><span class="o">=</span>unconfined --tmpfs /tmp --tmpfs /run -v /lib/modules:/lib/modules:ro --hostname minikube --name minikube --label created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label name.minikube.sigs.k8s.io<span class="o">=</span>minikube --label role.minikube.sigs.k8s.io<span class="o">=</span> --label mode.minikube.sigs.k8s.io<span class="o">=</span>minikube --network minikube --ip 192.168.49.2 --volume minikube:/var:exec --memory<span class="o">=</span>8000mb -e <span class="nv">container</span><span class="o">=</span>podman --expose <span class="m">8443</span> --publish<span class="o">=</span>127.0.0.1::8443 --publish<span class="o">=</span>127.0.0.1::22 --publish<span class="o">=</span>127.0.0.1::2376 --publish<span class="o">=</span>127.0.0.1::5000 --publish<span class="o">=</span>127.0.0.1::32443 gcr.io/k8s-minikube/kicbase-builds:v0.0.36-1673540226-15630
+</span></span></code></pre></div><p>It returns 0<br>
+Dear god&hellip;</p>
+<p>&hellip;</p>
+<p>Oh.. when I was running <code>$podman run ...</code> I was doing it before <code>$ podman network creat...</code>, hence the confusion..
+The fact that I missed a &lsquo;-&rsquo; during my parsing of the args dumped by the debugger(I&rsquo;ve done it by hand..) seemed to confirm a
+false trail.</p>
+<h4 id="one-step-forward-1">one step forward(!)</h4>
+<p>We were not failing inside createContainerNode() (now I don&rsquo;t even know why we were getting there in the first place..);
+actually we&rsquo;re failing inside oci.PrepareContainernode().. which does volume preparation.. which seems like our initial error</p>
+<pre tabindex="0"><code>❌  Exiting due to GUEST_PROVISION: Failed to start host: creating host: create: creating: setting up container node: creating volume for minikube container: podman volume create minikube --label name.minikube.sigs.k8s.io=minikube --label created_by.minikube.sigs.k8s.io=true: exit status 125`  
+stdout:
+
+stderr:
+Error: volume with name minikube already exists: volume already exists
+</code></pre><p>Which I didn&rsquo;t even read carefully I guess..</p>
+<p>In my defense, if retrying to <code>$ minikube start</code> without <code>$ minikube delete --all</code> first.. the error message changes to:</p>
+<pre tabindex="0"><code>❌  Exiting due to GUEST_PROVISION: Failed to start host: driver start: start: podman start minikube: exit status 125
+
+stdout:
+
+stderr:
+Error: no container with name or ID &#34;minikube&#34; found: no such container
+</code></pre><p>So we&rsquo;re failing the oci.PrepareContainernode() step here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/kic.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">d</span> <span class="o">*</span><span class="nx">Driver</span><span class="p">)</span> <span class="nf">Create</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">oci</span><span class="p">.</span><span class="nf">PrepareContainerNode</span><span class="p">(</span><span class="nx">params</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;setting up container node&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span></code></pre></div><p>which fails the &ldquo;create&rdquo; steps here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/minikube/machine/client.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">api</span> <span class="o">*</span><span class="nx">LocalClient</span><span class="p">)</span> <span class="nf">Create</span><span class="p">(</span><span class="nx">h</span> <span class="o">*</span><span class="nx">host</span><span class="p">.</span><span class="nx">Host</span><span class="p">)</span> <span class="kt">error</span> 
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>		<span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;creating&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">h</span><span class="p">.</span><span class="nx">Driver</span><span class="p">.</span><span class="nx">Create</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">},</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">step</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">steps</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">step</span><span class="p">.</span><span class="nf">f</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">step</span><span class="p">.</span><span class="nx">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span></code></pre></div><p>and so forth&hellip;</p>
+<p>oci.PrepareContainerNode() calls another ociBin-run-like function, called createVolume()&hellip;<br>
+This is the incriminated function:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// createVolume creates a volume to be attached to the container with correct labels and prefixes based on profile name
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Caution ! if volume already exists does NOT return an error and will not apply the minikube labels on it.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TODO: this should be fixed as a part of https://github.com/kubernetes/minikube/issues/6530
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createVolume</span><span class="p">(</span><span class="nx">ociBin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">profile</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">nodeName</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="s">&#34;volume&#34;</span><span class="p">,</span> <span class="s">&#34;create&#34;</span><span class="p">,</span> <span class="nx">nodeName</span><span class="p">,</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">ProfileLabelKey</span><span class="p">,</span> <span class="nx">profile</span><span class="p">),</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">CreatedByLabelKey</span><span class="p">,</span> <span class="s">&#34;true&#34;</span><span class="p">)));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Just a <code>$ podman volume create</code> with a bunch of labels.. which if I had to guess, are used by minikube to keep track of
+what minikube creates, rather than what the user creates for its purposes outside the minikube perspective.. thus to don&rsquo;t clean
+out user created containers during clean phase.</p>
+<p>Our error is that minikube volume already exists&hellip; The comment on that function is pretty talkative too.<br>
+So what is <a href="https://github.com/kubernetes/minikube/issues/6530">#6530</a> about?</p>
+<p>It&rsquo;s marked &ldquo;Closed&rdquo; but I cannot see any reference to any merged pr.</p>
+<p><code>$ podman volume ls</code> shows a minikube volume&hellip; then <code>$ minikube delete --all</code> is issued; I&rsquo;d expect to see no more minikube
+volume.. but instead.. it&rsquo;s still there.<br>
+So it should be safe to assume that removing that volume would fix our &ldquo;podman-rootless-minikube-not-starting&rdquo; issue. Really hope so..</p>
+<p>Let&rsquo;s try a clean run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman volume rm minikube
+</span></span><span class="line"><span class="cl">$ podman system prune --all
+</span></span><span class="line"><span class="cl">$ minikube delete --all
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">## aaaaand..</span>
+</span></span><span class="line"><span class="cl">$ minikube start
+</span></span></code></pre></div><p>Fuck.</p>
+<p>It doensn&rsquo;t work.. same error:</p>
+<pre tabindex="0"><code>✋  Stopping node &#34;minikube&#34;  ...
+🔥  Deleting &#34;minikube&#34; in podman ...
+🤦  StartHost failed, but will try again: creating host: create: creating: create kic node: container name &#34;minikube&#34;: log: 2023-01-24T14:20:51.264852000+02:00 + grep -qw cpu /sys/fs/cgroup/cgroup.controllers
+2023-01-24T14:20:51.265972000+02:00 + echo &#39;ERROR: UserNS: cpu controller needs to be delegated&#39;
+2023-01-24T14:20:51.266089000+02:00 ERROR: UserNS: cpu controller needs to be delegated
+2023-01-24T14:20:51.266169000+02:00 + exit 1: container exited unexpectedly
+🔥  Creating podman container (CPUs=2, Memory=8000MB) ...
+😿  Failed to start podman container. Running &#34;minikube delete&#34; may fix it: creating host: create: creating: setting up container node: creating volume for minikube container: podman volume create minikube --label name.minikube.sigs.k8s.io=minikube --label created_by.minikube.sigs.k8s.io=true: exit status 125
+stdout:
+
+stderr:
+Error: volume with name minikube already exists: volume already exists
+
+
+❌  Exiting due to GUEST_PROVISION: Failed to start host: creating host: create: creating: setting up container node: creating volume for minikube container: podman volume create minikube --label name.minikube.sigs.k8s.io=minikube --label created_by.minikube.sigs.k8s.io=true: exit status 125
+stdout:
+
+stderr:
+Error: volume with name minikube already exists: volume already exists
+</code></pre><p>Ok.. getting a grip to it<br>
+It&rsquo;s a container creation that fails for some &ldquo;cpu controller&rdquo; issue.. and the oci.preparecontainernode() is not safe to run
+multiple times.. so this results is us retrying container creation, but in the end failing for an unrelated error.</p>
+<blockquote>
+<p>EDIT:
+Actually its not a container creation that fails.. The container creates fine..<br>
+The newly created container immediately exits.. logging this:</p>
+<ul>
+<li>userns=</li>
+<li>grep -Eqv &lsquo;0[[:space:]]+0[[:space:]]+4294967295&rsquo; /proc/self/uid_map</li>
+<li>userns=1</li>
+<li>echo &lsquo;INFO: running in a user namespace (experimental)&rsquo;<br>
+INFO: running in a user namespace (experimental)</li>
+<li>validate_userns</li>
+<li>[[ -z 1 ]]</li>
+<li>local nofile_hard<br>
+++ ulimit -Hn</li>
+<li>nofile_hard=1048576</li>
+<li>local nofile_hard_expected=64000</li>
+<li>[[ 1048576 -lt 64000 ]]</li>
+<li>[[ -f /sys/fs/cgroup/cgroup.controllers ]]</li>
+<li>for f in cpu memory pids</li>
+<li>grep -qw cpu /sys/fs/cgroup/cgroup.controllers</li>
+<li>echo &lsquo;ERROR: UserNS: cpu controller needs to be delegated&rsquo;<br>
+ERROR: UserNS: cpu controller needs to be delegated</li>
+<li>exit 1</li>
+</ul>
+</blockquote>
+<p>We could easily fix at least the show-wrong-err-msg issue, by adding a check on the volume.</p>
+<p>..AAAnd we could (at some point) include volume cleanings when <code>$ minikube delete --all</code> is issued; (TODO)
+which seems tied to <a href="https://github.com/kubernetes/minikube/issues/15222">#15222</a></p>
+<p>&hellip;</p>
+<p>Or maybe not.. It seems just that I didn&rsquo;t know about the extra <code>--purge</code> flag to <code>$ minikube delete --all</code>, which seems to also remove
+volumes when we&rsquo;re using podman.. The issue is still relevant by the way, it doesn&rsquo;t remove docker volumes</p>
+<blockquote>
+<p>PS.<br>
+It&rsquo;s confusing.. yeah..<br>
+That last volume thing confused me as well.</p>
+</blockquote>
+<p>&hellip;</p>
+<p>While I was writing this, I was running <code>$ minikube start</code> after <code>$ minikube delete --all --purge</code> with rootless podman, just to be sure.
+And then something very strange happened.. It worked..</p>
+<p>&hellip;</p>
+<p>..But only because the <code>--purge</code> flag, as described by <code>$ minikube delete --help</code>, has the effect of
+removing the .minikube folder in the home directory.. Effectively removing cache and minikube config.<br>
+So I was running with docker driver instead of podman.</p>
+<p>That&rsquo;s why it was working.. I&rsquo;ll spare you the logs and my theories on this false trail.. this article is getting long.</p>
+<p>Plus the help msg for the <code>--purge</code> flag, doesn&rsquo;t mention volumes..<br>
+Someone on slack stated that <code>minikube delete --all</code> is for volumes.. any claim I made above is to be tossed..<br>
+I&rsquo;m not sure what happened.</p>
+<h4 id="starting-to-fix-stuff">starting to fix stuff..</h4>
+<p>What am I doing now.. fix the previous while the memory is still fresh.. or go to the next one and see if workarounds
+work first, so that to mark it as &ldquo;yes, it could work&rdquo; and apply fixes to the stack of errors..
+hoping to not find other n errors in the way.</p>
+<p>Writing down things helps.. I was about to go with the latter, but on a second thought&hellip;</p>
+<h5 id="the-volume-already-exists-error">The &ldquo;volume already exists&rdquo; error</h5>
+<p>This should be no big deal to solve.. We could just add a check for the volume presence first.<br>
+Let&rsquo;s check it out on a new branch.. separating PRs..</p>
+<p>I talked about it on slack and created <a href="https://github.com/kubernetes/minikube/issues/15697">#15697</a>.<br>
+The original function</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/oci/volumes.go
+</span></span></span><span class="line"><span class="cl"><span class="c1">// createVolume creates a volume to be attached to the container with correct labels and prefixes based on profile name
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Caution ! if volume already exists does NOT return an error and will not apply the minikube labels on it.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// TODO: this should be fixed as a part of https://github.com/kubernetes/minikube/issues/6530
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createVolume</span><span class="p">(</span><span class="nx">ociBin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">profile</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">nodeName</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="s">&#34;volume&#34;</span><span class="p">,</span> <span class="s">&#34;create&#34;</span><span class="p">,</span> <span class="nx">nodeName</span><span class="p">,</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">ProfileLabelKey</span><span class="p">,</span> <span class="nx">profile</span><span class="p">),</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">CreatedByLabelKey</span><span class="p">,</span> <span class="s">&#34;true&#34;</span><span class="p">)));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The new version:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// createVolume creates a volume to be attached to the container with correct labels and prefixes based on profile name
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Caution ! if volume already exists does NOT return an error and will not apply the minikube labels on it.
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">createVolume</span><span class="p">(</span><span class="nx">ociBin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">profile</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">nodeName</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">rr</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="s">&#34;volume&#34;</span><span class="p">,</span> <span class="s">&#34;ls&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">if</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="nx">rr</span><span class="p">.</span><span class="nf">Output</span><span class="p">(),</span> <span class="nx">nodeName</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">klog</span><span class="p">.</span><span class="nf">Infof</span><span class="p">(</span><span class="s">&#34;Trying to create %s volume using %s: Volume already exists !&#34;</span><span class="p">,</span> <span class="nx">nodeName</span><span class="p">,</span> <span class="nx">ociBin</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">			<span class="k">return</span> <span class="kc">nil</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">_</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nf">runCmd</span><span class="p">(</span><span class="nx">exec</span><span class="p">.</span><span class="nf">Command</span><span class="p">(</span><span class="nx">ociBin</span><span class="p">,</span> <span class="s">&#34;volume&#34;</span><span class="p">,</span> <span class="s">&#34;create&#34;</span><span class="p">,</span> <span class="nx">nodeName</span><span class="p">,</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">ProfileLabelKey</span><span class="p">,</span> <span class="nx">profile</span><span class="p">),</span> <span class="s">&#34;--label&#34;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;%s=%s&#34;</span><span class="p">,</span> <span class="nx">CreatedByLabelKey</span><span class="p">,</span> <span class="s">&#34;true&#34;</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">err</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Commit message:</p>
+<pre tabindex="0"><code>Adds check for volume existence in oci driver&#39;s createVolume()
+
+As the function&#39;s description states:
+It should not return err or change labels if volume already exists..
+
+Info that we found a volume might be helpful tho..
+As unlikely as it may sound.. user might create a minikube volume
+and wonder why its actual minikube cluster is not starting.
+
+We&#39;re deleteing TODO msg.
+The issue was already closed.
+</code></pre><p>Done&hellip;<br>
+Next.</p>
+<h5 id="the-cpu-controller-error">The &ldquo;cpu controller&rdquo; error</h5>
+<p>This time it won’t be that easy.. I think..
+I think this time we’re off the minikube sources.. the error is inside the kicBase container itself:</p>
+<p>Placing an os.Exit() here:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-golang" data-lang="golang"><span class="line"><span class="cl"><span class="c1">// pkg/drivers/kic/oci/oci.go
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kd">func</span> <span class="nf">CreateContainerNode</span><span class="p">(</span><span class="nx">p</span> <span class="nx">CreateParams</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	
+</span></span><span class="line"><span class="cl">	<span class="nx">os</span><span class="p">.</span><span class="nf">Exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="c1">// HERE --
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">createContainer</span><span class="p">(</span><span class="nx">p</span><span class="p">.</span><span class="nx">OCIBinary</span><span class="p">,</span> <span class="nx">p</span><span class="p">.</span><span class="nx">Image</span><span class="p">,</span> <span class="nf">withRunArgs</span><span class="p">(</span><span class="nx">runArgs</span><span class="o">...</span><span class="p">),</span> <span class="nf">withMounts</span><span class="p">(</span><span class="nx">p</span><span class="p">.</span><span class="nx">Mounts</span><span class="p">),</span> <span class="nf">withPortMappings</span><span class="p">(</span><span class="nx">p</span><span class="p">.</span><span class="nx">PortMappings</span><span class="p">));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">Wrap</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="s">&#34;create container&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">retry</span><span class="p">.</span><span class="nf">Expo</span><span class="p">(</span><span class="nf">checkRunning</span><span class="p">(</span><span class="nx">p</span><span class="p">),</span> <span class="mi">15</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Millisecond</span><span class="p">,</span> <span class="mi">25</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">excerpt</span> <span class="o">:=</span> <span class="nf">LogContainerDebug</span><span class="p">(</span><span class="nx">p</span><span class="p">.</span><span class="nx">OCIBinary</span><span class="p">,</span> <span class="nx">p</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span>
+</span></span></code></pre></div><p>Will give minikube free quarter to instantiate all the resources we’d need in order to successfully launch the following:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ podman run -d -t --privileged --security-opt <span class="nv">seccomp</span><span class="o">=</span>unconfined --tmpfs /tmp --tmpfs /run -v /lib/modules:/lib/modules:ro --hostname minikube --name minikube --label created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label name.minikube.sigs.k8s.io<span class="o">=</span>minikube --label role.minikube.sigs.k8s.io<span class="o">=</span> --label mode.minikube.sigs.k8s.io<span class="o">=</span>minikube --network minikube --ip 192.168.49.2 --volume minikube:/var:exec --memory<span class="o">=</span>8000mb -e <span class="nv">container</span><span class="o">=</span>podman --expose <span class="m">8443</span> --publish<span class="o">=</span>127.0.0.1::8443 --publish<span class="o">=</span>127.0.0.1::22 --publish<span class="o">=</span>127.0.0.1::2376 --publish<span class="o">=</span>127.0.0.1::5000 --publish<span class="o">=</span>127.0.0.1::32443 gcr.io/k8s-minikube/kicbase-builds:v0.0.36-1674164627-15541
+</span></span></code></pre></div><p>Which launches.. But the resulting container immediately exists;
+<code>$ podman logs someImageID</code> shows us some more output:</p>
+<pre tabindex="0"><code>+ userns=
++ grep -Eqv &#39;0[[:space:]]+0[[:space:]]+4294967295&#39; /proc/self/uid_map
++ userns=1
++ echo &#39;INFO: running in a user namespace (experimental)&#39;
+INFO: running in a user namespace (experimental)
++ validate_userns
++ [[ -z 1 ]]
++ local nofile_hard
+++ ulimit -Hn
++ nofile_hard=1048576
++ local nofile_hard_expected=64000
++ [[ 1048576 -lt 64000 ]]
++ [[ -f /sys/fs/cgroup/cgroup.controllers ]]
++ for f in cpu memory pids
++ grep -qw cpu /sys/fs/cgroup/cgroup.controllers
++ echo &#39;ERROR: UserNS: cpu controller needs to be delegated&#39;
+ERROR: UserNS: cpu controller needs to be delegated
++ exit 1
+</code></pre><p>This err message at the end got me throught
+<a href="https://unix.stackexchange.com/questions/624428/cgroups-v2-cgroup-controllers-not-delegated-to-non-privileged-users-on-centos-s">a more or less related</a>
+answer on stackoverflow; “I want to run rootless containers with podman” seems like what I’m trying to accomplish.</p>
+<p>And in fact, repeating all the setup procedure for podman, to run the uppermentioned container as root, produced a whole different result</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ sudo podman volume create minikube --label name.minikube.sigs.k8s.io<span class="o">=</span>minikube --label created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span>
+</span></span><span class="line"><span class="cl">$ sudo podman network create --driver<span class="o">=</span>bridge --subnet<span class="o">=</span>192.168.49.0/24 --gateway<span class="o">=</span>192.168.49.1 --label<span class="o">=</span>created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label<span class="o">=</span>name.minikube.sigs.k8s.io<span class="o">=</span>minikube minikube
+</span></span><span class="line"><span class="cl">$ sudo podman run -it --privileged --security-opt <span class="nv">seccomp</span><span class="o">=</span>unconfined --tmpfs /tmp --tmpfs /run -v /lib/modules:/lib/modules:ro --hostname minikube --label created_by.minikube.sigs.k8s.io<span class="o">=</span><span class="nb">true</span> --label name.minikube.sigs.k8s.io<span class="o">=</span>minikube --label role.minikube.sigs.k8s.io<span class="o">=</span> --label mode.minikube.sigs.k8s.io<span class="o">=</span>minikube --network minikube --ip 192.168.49.2 --volume minikube:/var:exec --memory<span class="o">=</span>8000mb -e <span class="nv">container</span><span class="o">=</span>podman --expose <span class="m">8443</span> --publish<span class="o">=</span>127.0.0.1::8443 --publish<span class="o">=</span>127.0.0.1::22 --publish<span class="o">=</span>127.0.0.1::2376 --publish<span class="o">=</span>127.0.0.1::5000 --publish<span class="o">=</span>127.0.0.1::32443 gcr.io/k8s-minikube/kicbase-builds:v0.0.36-1674164627-15541 -- /bin/sh
+</span></span></code></pre></div><pre tabindex="0"><code>[  OK  ] Listening on D-Bus System Message Bus Socket.
+         Starting Docker Socket for the API.
+         Starting Podman API Socket.
+[  OK  ] Listening on Docker Socket for the API.
+[  OK  ] Listening on Podman API Socket.
+[  OK  ] Reached target Sockets.
+[  OK  ] Reached target Basic System.
+         Starting containerd container runtime...
+[  OK  ] Started D-Bus System Message Bus.
+         Starting minikube automount...
+         Starting OpenBSD Secure Shell server...
+[  OK  ] Finished minikube automount.
+[  OK  ] Started OpenBSD Secure Shell server.
+[  OK  ] Started containerd container runtime.
+         Starting Docker Application Container Engine...
+[  OK  ] Started Docker Application Container Engine.
+[  OK  ] Reached target Multi-User System.
+[  OK  ] Reached target Graphical Interface.
+         Starting Update UTMP about System Runlevel Changes...
+[  OK  ] Finished Update UTMP about System Runlevel Changes.
+</code></pre><p>It’s systemd! We’re inside the container(we can’t do much tho..).</p>
+<p>If we’re executing with its entrypoint – /usr/local/bin/entrypoint($ minikube inspect imageID) instead of
+going to bash, we obtain a working &ldquo;node&rdquo; container.</p>
+<pre tabindex="0"><code>$ sudo podman ps 
+CONTAINER ID  IMAGE                                                        COMMAND     CREATED             STATUS                 PORTS                                                                                                                                 NAMES
+b215ff45b340  gcr.io/k8s-minikube/kicbase-builds:v0.0.36-1674164627-15541              About a minute ago  Up About a minute ago  127.0.0.1:39057-&gt;22/tcp, 127.0.0.1:46879-&gt;2376/tcp, 127.0.0.1:46527-&gt;5000/tcp, 127.0.0.1:35029-&gt;8443/tcp, 127.0.0.1:38423-&gt;32443/tcp  minikube
+</code></pre><h5 id="the-kicbase-image">The kicBase image</h5>
+<p>Ok now where does the kicBase image even come from?</p>
+<p>The minikube site has <a href="https://minikube.sigs.k8s.io/docs/contrib/building/iso/">this tutorial</a>
+that explains how to build the .iso; it’s not exactly what we’re looking for, but I can see that it’s a make command…
+Could it be?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ make <span class="nb">help</span>
+</span></span><span class="line"><span class="cl">Available targets <span class="k">for</span> minikube v1.28.0
+</span></span><span class="line"><span class="cl">--------------------------------------
+</span></span><span class="line"><span class="cl">all                            Build all different minikube components
+</span></span><span class="line"><span class="cl">drivers                        Build Hyperkit and KVM2 drivers
+</span></span><span class="line"><span class="cl">cross                          Build minikube <span class="k">for</span> all platform
+</span></span><span class="line"><span class="cl">exotic                         Build minikube <span class="k">for</span> non-amd64 linux
+</span></span><span class="line"><span class="cl">retro                          Build minikube <span class="k">for</span> legacy 32-bit linux
+</span></span><span class="line"><span class="cl">windows                        Build minikube <span class="k">for</span> Windows 64bit
+</span></span><span class="line"><span class="cl">darwin                         Build minikube <span class="k">for</span> Darwin 64bit
+</span></span><span class="line"><span class="cl">linux                          Build minikube <span class="k">for</span> Linux 64bit
+</span></span><span class="line"><span class="cl">goimports                      Run goimports and list the files differs from goimport<span class="err">&#39;</span>s
+</span></span><span class="line"><span class="cl">golint                         Run golint
+</span></span><span class="line"><span class="cl">gocyclo                        Run gocyclo <span class="o">(</span>calculates cyclomatic complexities<span class="o">)</span>
+</span></span><span class="line"><span class="cl">lint                           Run lint
+</span></span><span class="line"><span class="cl">lint-ci                        Run lint-ci
+</span></span><span class="line"><span class="cl">apt                            Generate apt package file
+</span></span><span class="line"><span class="cl"><span class="c1">## Here it is...</span>
+</span></span><span class="line"><span class="cl">local-kicbase                  Builds the kicbase image and tags it local/kicbase:latest and local/kicbase:<span class="k">$(</span>KIC_VERSION<span class="k">)</span>-<span class="k">$(</span>COMMIT_SHORT<span class="k">)</span>
+</span></span><span class="line"><span class="cl">local-kicbase-debug            Builds a <span class="nb">local</span> kicbase image and switches <span class="nb">source</span> code to point to it
+</span></span><span class="line"><span class="cl">build-kic-base-image           Build multi-arch local/kicbase:latest
+</span></span><span class="line"><span class="cl">push-kic-base-image            Push multi-arch local/kicbase:latest to all remote registries
+</span></span><span class="line"><span class="cl">upload-preloaded-images-tar    Upload the preloaded images <span class="k">for</span> oldest supported, newest supported, and default kubernetes versions to GCS.
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Makefile" data-lang="Makefile"><span class="line"><span class="cl"><span class="c"># Makefile
+</span></span></span><span class="line"><span class="cl"><span class="c"></span><span class="nf">.PHONY</span><span class="o">:</span> <span class="n">local</span>-<span class="n">kicbase</span>
+</span></span><span class="line"><span class="cl"><span class="nf">local-kicbase</span><span class="o">:</span> <span class="c">## Builds the kicbase image and tags it local/kicbase:latest and local/kicbase:$(KIC_VERSION)-$(COMMIT_SHORT)
+</span></span></span><span class="line"><span class="cl"><span class="c"></span>	docker build -f ./deploy/kicbase/Dockerfile -t local/kicbase:<span class="k">$(</span>KIC_VERSION<span class="k">)</span> --build-arg <span class="nv">VERSION_JSON</span><span class="o">=</span><span class="k">$(</span>VERSION_JSON<span class="k">)</span> --build-arg <span class="nv">COMMIT_SHA</span><span class="o">=</span><span class="si">${</span><span class="nv">VERSION</span><span class="si">}</span>-<span class="k">$(</span>COMMIT_NOQUOTES<span class="k">)</span> --cache-from <span class="k">$(</span>KICBASE_IMAGE_GCR<span class="k">)</span> .
+</span></span><span class="line"><span class="cl">	docker tag local/kicbase:<span class="k">$(</span>KIC_VERSION<span class="k">)</span> local/kicbase:latest
+</span></span><span class="line"><span class="cl">	docker tag local/kicbase:<span class="k">$(</span>KIC_VERSION<span class="k">)</span> local/kicbase:<span class="k">$(</span>KIC_VERSION<span class="k">)</span>-<span class="k">$(</span>COMMIT_SHORT<span class="k">)</span>
+</span></span></code></pre></div><p>nobody is gonna read this article at this point…</p>
+<p>Had to apply a couple of little fixes in order to make <code>make build-kic-base-image</code> work..
+later a maintainer on slack told me to stick to <code>make local-kicbase</code> instead:
+the former was used to build the kicBase for multiple archs..
+which I guess is not supported?<br>
+<code>ERROR: docker exporter does not currently support exporting manifest lists</code><br>
+either local-kicbase.. or just comment out the extra archs from makefile.</p>
+<p>But now we have an image:</p>
+<pre tabindex="0"><code>$ docker images 
+REPOSITORY      TAG                                  IMAGE ID       CREATED          SIZE
+local/kicbase   latest                               e099056031d5   19 minutes ago   1.15GB
+local/kicbase   v0.0.36-1674164627-15541             e099056031d5   19 minutes ago   1.15GB
+local/kicbase   v0.0.36-1674164627-15541-1784105c6   e099056031d5   19 minutes ago   1.15GB
+</code></pre><p>and since we’re trying to make it work on podman, a docker_save/podman_load after..</p>
+<pre tabindex="0"><code>$ podman images 
+REPOSITORY                TAG         IMAGE ID      CREATED         SIZE
+&lt;none&gt;                    &lt;none&gt;      e099056031d5  20 minutes ago  1.16 GB
+</code></pre><p>good old imageID.</p>
+<p>First thing is to create the resources with the previous podman network/volume create commands..</p>
+<p>Then again, running the container works, but it immediately stops with same logs == we’re on the same track.
+<code>ERROR: UserNS: cpu controller needs to be delegated</code>
+This cpu controller really needs to be delegated; where is docker picking its stuff in order to build the image?</p>
+<p>As the Makefile points out.. there’s a Dockerfile inside ./deply/kicbase;
+which is quite huge, so I’m not posting it.. only the relevant parts:</p>
+<p>Number one:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="c"># ./deploy/kicbase/Dockerfile</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># ...</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> --from<span class="o">=</span>auto-pause /src/cmd/auto-pause/auto-pause-<span class="si">${</span><span class="nv">TARGETARCH</span><span class="si">}</span> /bin/auto-pause<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># Install dependencies, first from apt, then from release tarballs.</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># NOTE: we use one RUN to minimize layers.  &lt;--- Here</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">#</span><span class="err">
+</span></span></span></code></pre></div><p>hmm.. we could (possibly?) use some buildah/Containerfile build types..
+Dunno what the actual state of the art for docker builds is..(TODO)</p>
+<p>Number two:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="c">#./deploy/kicbase/Dockerfile</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># First we must ensure that our util scripts are executable.</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">#</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># The base image already has: ssh, apt, snapd, but we need to install more packages.</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># Packages installed are broken down into (each on a line):</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - packages needed to run services (systemd)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - packages needed for kubernetes components</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - packages needed by the container runtime</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - misc packages kind uses itself</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - packages that provide semi-core kubernetes functionality</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># After installing packages we cleanup by:</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - removing unwanted systemd services</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># - disabling kmsg in journald (these log entries would be confusing)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">#</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># Next we ensure the /etc/kubernetes/manifests directory exists. Normally</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># a kubeadm debian / rpm package would ensure that this exists but we install</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># freshly built binaries directly when we build the node image.</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">#</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># Finally we adjust tempfiles cleanup to be 1 minute after &#34;boot&#34; instead of 15m</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># This is plenty after we&#39;ve done initial setup for a node, but before we are</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># likely to try to export logs etc.</span><span class="err">
+</span></span></span></code></pre></div><p>The whole workflow is documented. Wonderful!
+It’s exactly how it’s written.. a couple of RUNs for each piece so… Even if not configured to be used, all the pieces (docker/podman/containerd/crio/crun/…) are still inside the image.</p>
+<p>Dumping some random RUNs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="c"># ./deploy/kicbase/Dockerfile</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># install cri-o based on https://github.com/cri-o/cri-o/blob/release-1.24/README.md#installing-cri-o</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">export</span> <span class="nv">ARCH</span><span class="o">=</span><span class="k">$(</span>dpkg --print-architecture <span class="p">|</span> sed <span class="s1">&#39;s/ppc64el/ppc64le/&#39;</span> <span class="p">|</span> sed <span class="s1">&#39;s/armhf/arm-v7/&#39;</span><span class="k">)</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="k">if</span> <span class="o">[</span> <span class="s2">&#34;</span><span class="nv">$ARCH</span><span class="s2">&#34;</span> !<span class="o">=</span> <span class="s2">&#34;ppc64le&#34;</span> <span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="o">[</span> <span class="s2">&#34;</span><span class="nv">$ARCH</span><span class="s2">&#34;</span> !<span class="o">=</span> <span class="s2">&#34;arm-v7&#34;</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span> sh -c <span class="s2">&#34;echo &#39;deb https://downloadcontent.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/</span><span class="si">${</span><span class="nv">CRIO_VERSION</span><span class="si">}</span><span class="s2">/xUbuntu_20.04/ /&#39; &gt; /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:</span><span class="si">${</span><span class="nv">CRIO_VERSION</span><span class="si">}</span><span class="s2">.list&#34;</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    curl -LO https://downloadcontent.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/<span class="si">${</span><span class="nv">CRIO_VERSION</span><span class="si">}</span>/xUbuntu_20.04/Release.key <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    apt-key add - &lt; Release.key <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    clean-install cri-o cri-o-runc<span class="p">;</span> <span class="k">fi</span><span class="err">
+</span></span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="c"># ./deploy/kicbase/Dockerfile</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># Install cri-dockerd from pre-compiled binaries stored in GCS, this is way faster than building from source in multi-arch</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;Installing cri-dockerd&#34;</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        curl -L <span class="s2">&#34;https://storage.googleapis.com/kicbase-artifacts/cri-dockerd/</span><span class="si">${</span><span class="nv">CRI_DOCKERD_VERSION</span><span class="si">}</span><span class="s2">/</span><span class="si">${</span><span class="nv">TARGETARCH</span><span class="si">}</span><span class="s2">/cri-dockerd&#34;</span> -o /usr/bin/cri-dockerd <span class="o">&amp;&amp;</span> chmod +x /usr/bin/cri-dockerd <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        curl -L <span class="s2">&#34;https://storage.googleapis.com/kicbase-artifacts/cri-dockerd/</span><span class="si">${</span><span class="nv">CRI_DOCKERD_VERSION</span><span class="si">}</span><span class="s2">/cri-docker.socket&#34;</span> -o /usr/lib/systemd/system/cri-docker.socket <span class="o">&amp;&amp;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        curl -L <span class="s2">&#34;https://storage.googleapis.com/kicbase-artifacts/cri-dockerd/</span><span class="si">${</span><span class="nv">CRI_DOCKERD_VERSION</span><span class="si">}</span><span class="s2">/cri-docker.service&#34;</span> -o /usr/lib/systemd/system/cri-docker.service<span class="err">
+</span></span></span></code></pre></div><h5 id="make-kicbase-is-slooooow">make kicBase is slooooow…</h5>
+<p>What I’m doing now is to try to guess which thing is responsible for that <code>ERROR: UserNS: cpu controller needs to be delegated</code> error,
+which I didn’t ever see inside a container before..
+The thing is that making the whole kicbase is a time consuming process.. But do we need the full 1.16G image?
+I guess not.. so we’re stripping it down.</p>
+<p>What I want to reproduce is the same ERROR output from the official kicBase.<br>
+Just by trying to get to a shell inside of it for now, then try to call the entrypoint.</p>
+<p>With the full image, doing this
+<code>$ podman run -it officialKIcBase /bin/sh</code> is enough to trigger the error…<br>
+Just an sh?<br>
+What could’ve possibly gone wrong?</p>
+<blockquote>
+<p>EDIT<br>
+Got rid of it removing ENTRYPOINT directive inside Dockerfile<br>
+I thought that appending
+the command at the end of podman run would override entrypoint..</p>
+</blockquote>
+<p>I tried to strip everything excpet the systemd parts from the container, since it seems responsible for the error.
+I ended up with:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="k">FROM</span><span class="s"> golang:1.19.5 as auto-pause</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">WORKDIR</span><span class="s"> /src</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> pkg/ ./pkg<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> cmd/ ./cmd<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/addons ./deploy/addons<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> translations/ ./translations<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> third_party/ ./third_party<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> go.mod go.sum ./<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> TARGETARCH<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ENV</span> <span class="nv">GOARCH</span><span class="o">=</span><span class="si">${</span><span class="nv">TARGETARCH</span><span class="si">}</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> PREBUILT_AUTO_PAUSE<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="k">if</span> <span class="o">[</span> <span class="s2">&#34;</span><span class="nv">$PREBUILT_AUTO_PAUSE</span><span class="s2">&#34;</span> !<span class="o">=</span> <span class="s2">&#34;true&#34;</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span> <span class="nb">cd</span> ./cmd/auto-pause/ <span class="o">&amp;&amp;</span> go build -o auto-pause-<span class="si">${</span><span class="nv">TARGETARCH</span><span class="si">}</span><span class="p">;</span> <span class="k">fi</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">FROM</span><span class="s"> ubuntu:focal-20221019 as kicbase</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> <span class="nv">BUILDKIT_VERSION</span><span class="o">=</span><span class="s2">&#34;v0.11.0&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> <span class="nv">FUSE_OVERLAYFS_VERSION</span><span class="o">=</span><span class="s2">&#34;v1.7.1&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> <span class="nv">CONTAINERD_FUSE_OVERLAYFS_VERSION</span><span class="o">=</span><span class="s2">&#34;1.0.3&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> <span class="nv">CRIO_VERSION</span><span class="o">=</span><span class="s2">&#34;1.24&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> <span class="nv">CRI_DOCKERD_VERSION</span><span class="o">=</span><span class="s2">&#34;0de30fc57b659cf23b1212d6516e0cceab9c91d1&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> TARGETARCH<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/10-network-security.conf /etc/sysctl.d/10-network-security.conf<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/11-tcp-mtu-probing.conf /etc/sysctl.d/11-tcp-mtu-probing.conf<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/02-crio.conf /etc/crio/crio.conf.d/02-crio.conf<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/containerd.toml /etc/containerd/config.toml<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/containerd_docker_io_hosts.toml /etc/containerd/certs.d/docker.io/hosts.toml<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/clean-install /usr/local/bin/clean-install<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/entrypoint /usr/local/bin/entrypoint<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/CHANGELOG ./CHANGELOG<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> --from<span class="o">=</span>auto-pause /src/cmd/auto-pause/auto-pause-<span class="si">${</span><span class="nv">TARGETARCH</span><span class="si">}</span> /bin/auto-pause<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;Ensuring scripts are executable ...&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> chmod +x /usr/local/bin/clean-install /usr/local/bin/entrypoint <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Installing Packages ...&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> <span class="nv">DEBIAN_FRONTEND</span><span class="o">=</span>noninteractive clean-install <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      systemd <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      conntrack iptables iproute2 ethtool socat util-linux mount ebtables udev kmod <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      libseccomp2 pigz <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      bash ca-certificates curl rsync <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      nfs-common <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>      iputils-ping netcat-openbsd vim-tiny <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> find /lib/systemd/system/sysinit.target.wants/ -name <span class="s2">&#34;systemd-tmpfiles-setup.service&#34;</span> -delete <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /lib/systemd/system/multi-user.target.wants/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /etc/systemd/system/*.wants/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /lib/systemd/system/local-fs.target.wants/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /lib/systemd/system/sockets.target.wants/*udev* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /lib/systemd/system/sockets.target.wants/*initctl* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> rm -f /lib/systemd/system/basic.target.wants/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;ReadKMsg=no&#34;</span> &gt;&gt; /etc/systemd/journald.conf <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> ln -s <span class="s2">&#34;</span><span class="k">$(</span>which systemd<span class="k">)</span><span class="s2">&#34;</span> /sbin/init <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Ensuring /etc/kubernetes/manifests&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> mkdir -p /etc/kubernetes/manifests <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Adjusting systemd-tmpfiles timer&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Disabling udev&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="o">&amp;&amp;</span> systemctl disable udev.service <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Modifying /etc/nsswitch.conf to prefer hosts&#34;</span> <span class="err">\
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ENV</span> container docker<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">STOPSIGNAL</span><span class="s"> SIGRTMIN+3</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> COMMIT_SHA<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">USER</span><span class="s"> root</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ARG</span> VERSION_JSON<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;</span><span class="si">${</span><span class="nv">VERSION_JSON</span><span class="si">}</span><span class="s2">&#34;</span> &gt; /version.json<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/automount/minikube-automount /usr/sbin/minikube-automount<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/automount/minikube-automount.service /usr/lib/systemd/system/minikube-automount.service<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> ln -fs /usr/lib/systemd/system/minikube-automount.service <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    /etc/systemd/system/multi-user.target.wants/minikube-automount.service<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/scheduled-stop/minikube-scheduled-stop /var/lib/minikube/scheduled-stop/minikube-scheduled-stop<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/scheduled-stop/minikube-scheduled-stop.service /usr/lib/systemd/system/minikube-scheduled-stop.service<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span>  chmod +x /var/lib/minikube/scheduled-stop/minikube-scheduled-stop<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> rm -rf <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /usr/share/doc/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /usr/share/man/* <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  /usr/share/local/*<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">RUN</span> <span class="nb">echo</span> <span class="s2">&#34;kic! Build: </span><span class="si">${</span><span class="nv">COMMIT_SHA</span><span class="si">}</span><span class="s2"> Time :</span><span class="k">$(</span>date<span class="k">)</span><span class="s2">&#34;</span> &gt; <span class="s2">&#34;/kic.txt&#34;</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">### then make local-kicbase builds it</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">### then docker_save/podman_load ....</span><span class="err">
+</span></span></span></code></pre></div><p>Which doesn’t reproduce the error..
+Which seems bogus, since everything else on that Dockerfile is just installing stuff..</p>
+<p>I successfully got a shell inside the container.
+Something as simple as <code># systemctl list-units</code> wouldn’t work, cause</p>
+<pre tabindex="0"><code>root@a26f881f092a:/# systemctl list-units
+System has not been booted with systemd as init system (PID 1). Can&#39;t operate.
+Failed to connect to bus: Host is down
+</code></pre><p>Allright.. so something must be invoking systemd in some way somewhere..</p>
+<p>What about the previous entrypoint?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="line"><span class="cl"><span class="c"># original Dockerfile @ ./deploy/kicbase/Dockerfile</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">#...</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">COPY</span> deploy/kicbase/entrypoint /usr/local/bin/entrypoint<span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c"># NOTE: this is *only* for documentation, the entrypoint is overridden later</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="k">ENTRYPOINT</span> <span class="p">[</span> <span class="s2">&#34;/usr/local/bin/entrypoint&#34;</span><span class="p">,</span> <span class="s2">&#34;/sbin/init&#34;</span> <span class="p">]</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="c">## dunno where it&#39;s overridden.. whatever..</span><span class="err">
+</span></span></span></code></pre></div><p>Well.. dunno why I wasn’t able to override the entrypoint with the podman run command, but let’s try it out:</p>
+<pre tabindex="0"><code># from inside the container
+
+$ /usr/local/bin/entrypoint
+...
+ERROR: UserNS: cpu controller needs to be delegated
++ exit 1
+</code></pre><p>yep.. Here it is.
+Let’s look at what it’s doing..</p>
+<p>At the top of the file there is already a set -x, which makes all the ‘+’/’++’ prefixed line of output appear..
+We can start reading from there…</p>
+<p>Those are the only lines that we need:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># deploy/kicbase/entrypoint</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># If /proc/self/uid_map 4294967295 mappings, we are in the initial user namespace, i.e. the host.</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Otherwise we are in a non-initial user namespace.</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># https://github.com/opencontainers/runc/blob/v1.0.0-rc92/libcontainer/system/linux.go#L109-L118</span>
+</span></span><span class="line"><span class="cl"><span class="nv">userns</span><span class="o">=</span><span class="s2">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> grep -Eqv <span class="s2">&#34;0[[:space:]]+0[[:space:]]+4294967295&#34;</span> /proc/self/uid_map<span class="p">;</span> <span class="k">then</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">userns</span><span class="o">=</span><span class="s2">&#34;1&#34;</span>
+</span></span><span class="line"><span class="cl">  <span class="nb">echo</span> <span class="s1">&#39;INFO: running in a user namespace (experimental)&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="k">fi</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># then a bunch of definitions..</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">validate_userns<span class="o">()</span> <span class="o">{</span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="o">[[</span> -z <span class="s2">&#34;</span><span class="si">${</span><span class="nv">userns</span><span class="si">}</span><span class="s2">&#34;</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span>
+</span></span><span class="line"><span class="cl">  <span class="k">fi</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="nb">local</span> nofile_hard
+</span></span><span class="line"><span class="cl">  <span class="nv">nofile_hard</span><span class="o">=</span><span class="s2">&#34;</span><span class="k">$(</span><span class="nb">ulimit</span> -Hn<span class="k">)</span><span class="s2">&#34;</span>
+</span></span><span class="line"><span class="cl">  <span class="nb">local</span> <span class="nv">nofile_hard_expected</span><span class="o">=</span><span class="s2">&#34;64000&#34;</span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="o">[[</span> <span class="s2">&#34;</span><span class="si">${</span><span class="nv">nofile_hard</span><span class="si">}</span><span class="s2">&#34;</span> -lt <span class="s2">&#34;</span><span class="si">${</span><span class="nv">nofile_hard_expected</span><span class="si">}</span><span class="s2">&#34;</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">echo</span> <span class="s2">&#34;WARN: UserNS: expected RLIMIT_NOFILE to be at least </span><span class="si">${</span><span class="nv">nofile_hard_expected</span><span class="si">}</span><span class="s2">, got </span><span class="si">${</span><span class="nv">nofile_hard</span><span class="si">}</span><span class="s2">&#34;</span> &gt;<span class="p">&amp;</span><span class="m">2</span>
+</span></span><span class="line"><span class="cl">  <span class="k">fi</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="o">[[</span> -f <span class="s2">&#34;/sys/fs/cgroup/cgroup.controllers&#34;</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> f in cpu memory pids<span class="p">;</span> <span class="k">do</span>
+</span></span><span class="line"><span class="cl">      <span class="k">if</span> ! grep -qw <span class="nv">$f</span> /sys/fs/cgroup/cgroup.controllers<span class="p">;</span> <span class="k">then</span>
+</span></span><span class="line"><span class="cl"><span class="c1">## [!] we&#39;re dying here:</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">echo</span> <span class="s2">&#34;ERROR: UserNS: </span><span class="nv">$f</span><span class="s2"> controller needs to be delegated&#34;</span> &gt;<span class="p">&amp;</span><span class="m">2</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">exit</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">      <span class="k">fi</span>
+</span></span><span class="line"><span class="cl">    <span class="k">done</span>
+</span></span><span class="line"><span class="cl">  <span class="k">fi</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># then other bunch of definitions..</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ultimately validate_userns gets called</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># validate state</span>
+</span></span><span class="line"><span class="cl">validate_userns
+</span></span></code></pre></div><p>I thought there was some bug inside the grep or something..
+There’s nothing wrong.. it was the original willing of the author(git blame him :).
+Also.. if running a bash on the same container from <code>sudo podman</code> or <code>docker</code>, we’re getting past that line.</p>
+<p>I have no idea what this means.</p>
+<h5 id="fastforward">fastforward&hellip;</h5>
+<p>Ok now I have..</p>
+<p>I was about to ask directly the one responsible for that line of code(he was online), but as happens to me a lot of times..
+while I was writing the question.. I investigated further.. &rsquo;till I got the answer..</p>
+<p>What happens is the following:</p>
+<ol>
+<li>
+<p><a href="https://medium.com/nttlabs/cgroup-v2-596d035be4d7">this article</a> talks about the migration from cgroupsv1 to
+to cgroupsv2 and its status (at that time).. it also talks about podman and rootless containers and explains how
+to solve our issue(search for <code>podman run --cpus</code>), as well as why it&rsquo;s an issue.</p>
+</li>
+<li>
+<p><a href="https://systemd.io/CGROUP_DELEGATION/#some-donts">why is that an issue..</a> more in detail (plus the link in the article is broken).<br>
+It actually was considered an issue with cgroupsv1.. but then with cgroupsv2 it became like running a less-rootless container..?<br>
+Still figuring..</p>
+</li>
+<li>
+<p><a href="https://rootlesscontaine.rs/getting-started/common/cgroup2/#enabling-cpu-cpuset-and-io-delegation">the solution expanded</a>, even tho
+at the end it says to reboot.. actually a <code> sudo systemctl daemon-reload</code> is enough for the delegation to take effect<br>
+Althought I admit that I rebooted to undelegate&hellip;<br>
+<a href="https://github.com/containers/podman/blob/main/troubleshooting.md#26-running-containers-with-resource-limits-fails-with-a-permissions-error">Also podman is proposing it</a></p>
+</li>
+<li>
+<p><a href="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#model-of-delegation">one level deeper explaination of what&rsquo;s happening</a><br>
+I was wondering why this is a thing.. why setting my own resources should imply more privileges than my own..<br>
+This kinda explains it..<br>
+<code>&quot;Because the resource control interface files in a given directory control the distribution of the parent’s resources, the delegatee shouldn’t be allowed to write to them&quot;</code><br>
+But I&rsquo;m not sure if I got it right&hellip;(TODO)</p>
+</li>
+<li>
+<p><a href="https://github.com/kubernetes/minikube/issues/14869">doesn&rsquo;t work under wsl as of august29/2022</a> dunno why I posted it.. stumbled upon it
+and it just seemed interesting(Dunno its current state, but I can close this tab now..)</p>
+</li>
+</ol>
+<p>So it&rsquo;s not an issue at all.. it&rsquo;s just extra care.</p>
+<p>IT IS actually part of the <a href="https://minikube.sigs.k8s.io/docs/drivers/podman/#rootless-podman">minikube documentation</a>,<br>
+in that &ldquo;See the <a href="https://minikube.sigs.k8s.io/docs/drivers/docker/#rootless-docker">Rootless Docker</a>&rdquo; link..<br>
+dunno why I missed it(so many times).</p>
+<p>..Luckily we have another issue:</p>
+<h5 id="the-other-issue">The other issue&hellip;</h5>
+<p>Oh no, wait..<br>
+There was none.</p>
+<p><em>The END.</em></p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/container_adventures">container_adventures</a></li>
+					
+					<li><a href="/tags/golang">golang</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

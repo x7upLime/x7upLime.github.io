@@ -9,11 +9,11 @@
     <lastBuildDate>Mon, 23 Jan 2023 15:17:23 +0200</lastBuildDate>
     <atom:link href="/tags/container_adventures/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Container Adventures 4</title>
-      <link>/posts/container-adventures4/</link>
+      <title>Container Adventures 2</title>
+      <link>/posts/container-adventures2/</link>
       <pubDate>Mon, 23 Jan 2023 15:17:23 +0200</pubDate>
-      <guid>/posts/container-adventures4/</guid>
-      <description>I know this is part 4 of an incomplete list of articles&amp;hellip;&#xA;part 3 and 2 are on my todolist..&#xA;This whole thing happened after the currently unpublished &amp;ldquo;container adventures 3&amp;rdquo;,&#xA;and gave birth to those foolish junior prs/issues on kubernetes/minikube&#xA;#15678 ca3&#xA;#15696 ca3&#xA;#15677 ca3 - the issue.. but the discussion is on slack&#xA;#15491 ca3 &amp;ndash; not able to rebase + change in workflow&#xA;#15697 the create-volume bug</description>
+      <guid>/posts/container-adventures2/</guid>
+      <description>This whole thing happened after a couple of more trials in the container world and gave birth to those foolish junior prs/issues on kubernetes/minikube&#xA;#15678 ca3&#xA;#15696 ca3&#xA;#15677 ca3 - the issue.. but the discussion is on slack&#xA;#15491 ca3 &amp;ndash; not able to rebase + change in workflow&#xA;#15697 the create-volume bug&#xA;#15699 the create-volume proposed solution&#xA;Solving container creation issues for the podman driver &amp;ndash; minikube We were able to merge the newly proposed cache-invalidation mechanism (not yet actually.</description>
     </item>
     <item>
       <title>Container Adventures 1</title>
