@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>cgroups_fork-bomb - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Mitigare una fork bomb tramite l&#39;uso di cgroups" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="cgroups_fork-bomb" />
+<meta property="og:description" content="Mitigare una fork bomb tramite l&#39;uso di cgroups" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/cgroups_fork-bomb/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-09-08T19:53:16+02:00" />
+<meta property="article:modified_time" content="2024-09-08T19:53:16+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="cgroups_fork-bomb"/>
+<meta name="twitter:description" content="Mitigare una fork bomb tramite l&#39;uso di cgroups"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">cgroups_fork-bomb</h1>
+			<div class="meta">Posted on Sep 8, 2024</div>
+		</div>
+		
+
+		<section class="body">
+			<p>La command line che vado a mostrarvi non è materiale accademico,
+è forse più parte della cultura underground del mondo unix:</p>
+<p><code>:() { :|:&amp; };:</code> &ndash; la fork bomb di Bash</p>
+<blockquote>
+<p>su bash questa command line viene interpretata come
+la definzione di una funzione chiamata &lsquo;:&rsquo;, il cui corpo prevede
+una chiamata a se stessa ed una seconda chiamata in ascolto
+sull&rsquo;input della prima (che non arriva mai) per bloccare il process e impedirgli di uscire,
+il tutto in background.</p>
+<p>L&rsquo;idea è che al lancio il processo continuerà
+a forkare copie che a loro volta forkeranno copie, all&rsquo;infinito ed in maniera incontrollabile
+in quanto ogni processo è indipendente (non basta eliminare un processo parent per fermare il flusso),
+fino all&rsquo;esaurimento dei PID del sistema, risultando nell&rsquo;incapacità di generare nuovi processi:
+niente nuove connessioni ssh, niente nuovi worker apache, niente command line per risolvere il problema.</p>
+</blockquote>
+<p>La fork bomb metteva in ginocchio i sistemi Linux nelle versioni più vecchie.
+Ad oggi esiste una migliore gestione delle risorse di sistema e diversi meccanismi per
+mitigare questo specifico attacco. Di seguito vado a mostrare uno scenario dove questo
+attacco viene reso completamente inoffensivo, tramite i <strong>cgroup</strong>.</p>
+<p>Apriamo qualche terminale: una shell per setuppare lo scenario,
+una shell per generare la fork bomb, e magari una terza shell per rimanere in osservazione.</p>
+<p>1a shell:<br>
+<strong>sudo -i</strong> &ndash; per gestire i cgroup<br>
+<strong>mkdir /sys/fs/cgroup/cage</strong>  &ndash; creiamo il cgroup chiamato &lsquo;cage&rsquo;<br>
+<strong>echo 10 /sys/fs/cgroup/cage/pids.max</strong> &ndash; configuriamo cage x massimo 10 PID allocabili</p>
+<p>2a shell:<br>
+<strong>echo $$</strong> &ndash; variabile speciale di bash che contiene il PID del processo corrente</p>
+<p>1a shell:<br>
+<strong>echo $$TERMPID &gt; /sys/fs/cgroup/cage/cgroup.procs</strong> &ndash; ingabbiamo il 1o terminale e figli</p>
+<p>3a shell:<br>
+<strong>watch -n .3 -t cat /sys/fs/cgroup/cage/pids.current</strong> &ndash; rimaniamo in osservazione sui PID allocati</p>
+<p>2a shell:<br>
+<strong><code>:() { :|:&amp; };:</code></strong> &ndash; lanciamo sta fork bomb</p>
+<p>A questo punto sul terzo terminale vedremo il numero di PIDs allocati salire al limite
+e sul terminale che ha lanciato la fork bomb, vedremo i messaggi di errore &ldquo;Resource temporarily unavailable&rdquo;</p>
+<p><img src="/posts/images/fork_bomb.png" alt="un paio di finestre di tmux sullo scenario descritto" title="fork bomb"></p>
+<p>Quando siamo soddisfatti, possiamo lanciare <code>echo 1 &gt; /sys/fs/cgroup/cage/cgroup.kill</code>
+dal secondo terminale per terminare il tutto.</p>
+<p>Se non limitate i PIDs allocabili da cgroup, potrete veder salire i processi
+forkati fino a (in base al vostro sistema) trovare un limite.
+Il peggio che può succedervi è che dovete riavviare la macchina.
+Questa command line fa parte della serie di command line pericolose su Linux,
+molto meno letale di <strong>rm -rfv /</strong>* (non provatela).</p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/cgroups">cgroups</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andrew@andrewdomain.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

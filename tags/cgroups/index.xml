@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>cgroups on andrewdomain Blog</title>
+    <link>/tags/cgroups/</link>
+    <description>Recent content in cgroups on andrewdomain Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 08 Sep 2024 19:53:16 +0200</lastBuildDate>
+    <atom:link href="/tags/cgroups/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>cgroups_fork-bomb</title>
+      <link>/posts/cgroups_fork-bomb/</link>
+      <pubDate>Sun, 08 Sep 2024 19:53:16 +0200</pubDate>
+      <guid>/posts/cgroups_fork-bomb/</guid>
+      <description>La command line che vado a mostrarvi non è materiale accademico, è forse più parte della cultura underground del mondo unix:&#xA;:() { :|:&amp;amp; };: &amp;ndash; la fork bomb di Bash&#xA;su bash questa command line viene interpretata come la definzione di una funzione chiamata &amp;lsquo;:&amp;rsquo;, il cui corpo prevede una chiamata a se stessa ed una seconda chiamata in ascolto sull&amp;rsquo;input della prima (che non arriva mai) per bloccare il process e impedirgli di uscire, il tutto in background.</description>
+    </item>
+  </channel>
+</rss>
