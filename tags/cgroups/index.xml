@@ -6,8 +6,15 @@
     <description>Recent content in cgroups on andrewdomain Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 08 Sep 2024 19:53:16 +0200</lastBuildDate>
+    <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
     <atom:link href="/tags/cgroups/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Ricetta: limite di memoria tramite cgroups</title>
+      <link>/posts/ricetta-mem_limit_rest_cgroups/</link>
+      <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
+      <guid>/posts/ricetta-mem_limit_rest_cgroups/</guid>
+      <description>Mostreremo come confinare un&amp;rsquo;applicazione tramite cgroup rispetto alla memoria, creando le condizioni di osservare quello che accade vicino &amp;ldquo;al limite&amp;rdquo;, senza andare ad intaccare le risorse del nostro sistema operativo.&#xA;ingredienti un go compiler (dnf install go su Fedora) una shell (nella ricetta userò la varietà bash) un kernel Linux ad una versione recente privilegi di root sul sistema Procedura Ad alto livello:&#xA;Necessiteremo di un applicativo da confinare, ci occuperemo del setup dei cgroup sul nostro sistema Linux, terremo monitorata la situazione per vedere gli effetti sul nostro applicativo.</description>
+    </item>
     <item>
       <title>cgroups_fork-bomb</title>
       <link>/posts/cgroups_fork-bomb/</link>

@@ -5,7 +5,7 @@
     <loc>/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
   </url><url>
-    <loc>/tags/cgroup/</loc>
+    <loc>/tags/cgroups/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
   </url><url>
     <loc>/tags/golang/</loc>
@@ -25,9 +25,6 @@
   </url><url>
     <loc>/tags/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
-  </url><url>
-    <loc>/tags/cgroups/</loc>
-    <lastmod>2024-09-08T19:53:16+02:00</lastmod>
   </url><url>
     <loc>/posts/cgroups_fork-bomb/</loc>
     <lastmod>2024-09-08T19:53:16+02:00</lastmod>
