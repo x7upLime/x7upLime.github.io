@@ -1,26 +1,19 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>sys on andrewdomain Blog</title>
-    <link>/tags/sys/</link>
-    <description>Recent content in sys on andrewdomain Blog</description>
+    <title>memory on andrewdomain Blog</title>
+    <link>/tags/memory/</link>
+    <description>Recent content in memory on andrewdomain Blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
-    <atom:link href="/tags/sys/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="/tags/memory/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Ricetta: limite di memoria per una (mock) REST API tramite cgroups</title>
       <link>/posts/ricetta-mem_limit_rest_cgroups/</link>
       <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
       <guid>/posts/ricetta-mem_limit_rest_cgroups/</guid>
       <description>Mostreremo come confinare un&amp;rsquo;applicazione tramite cgroup rispetto alla memoria, creando le condizioni di osservare quello che accade vicino &amp;ldquo;al limite&amp;rdquo;, senza andare ad intaccare le risorse del nostro sistema operativo.&#xA;ingredienti un go compiler (dnf install go su Fedora) una shell (nella ricetta userò la varietà bash) un kernel Linux ad una versione recente privilegi di root sul sistema Procedura Ad alto livello:&#xA;Necessiteremo di un applicativo da confinare, ci occuperemo del setup dei cgroup sul nostro sistema Linux, terremo monitorata la situazione per vedere gli effetti sul nostro applicativo.</description>
-    </item>
-    <item>
-      <title>A_brief_story_of_hier</title>
-      <link>/posts/a_brief_story_of_hier/</link>
-      <pubDate>Sun, 07 Jan 2024 21:33:38 +0200</pubDate>
-      <guid>/posts/a_brief_story_of_hier/</guid>
-      <description>Recently Fedora opened this curious Change proposal about the unification of the /bin and /sbin paths.&#xA;The news was welcomed by the community with short oneline sentences, that didn&amp;rsquo;t help me understand the connotations of that proposal so I thought about using the occasion to do some little research to make light on this matter&amp;hellip;&#xA;What I found out is that Fedora was not the first distro to implement this choice, but was one of the first ones to start this 10+ years old discussion about reforming the filesystem hierarchy under Linux, which now is reaching a more advanced state.</description>
     </item>
   </channel>
 </rss>

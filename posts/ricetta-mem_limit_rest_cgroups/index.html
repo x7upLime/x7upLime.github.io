@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html><head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Ricetta: limite di memoria per una (mock) REST API tramite cgroups - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
+di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:title" content="Ricetta: limite di memoria per una (mock) REST API tramite cgroups" />
+<meta property="og:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
+di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
+" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/ricetta-mem_limit_rest_cgroups/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-09-19T11:39:50+02:00" />
+<meta property="article:modified_time" content="2024-09-19T11:39:50+02:00" />
+
+<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Ricetta: limite di memoria per una (mock) REST API tramite cgroups"/>
+<meta name="twitter:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
+di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
+"/>
+<script src="/js/feather.min.js"></script>
+	
+	
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+	
+	
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">Ricetta: limite di memoria per una (mock) REST API tramite cgroups</h1>
+			<div class="meta">Posted on Sep 19, 2024</div>
+		</div>
+		
+
+		<section class="body">
+			<p>Mostreremo come confinare un&rsquo;applicazione tramite cgroup rispetto alla memoria,
+creando le condizioni di osservare quello che accade vicino &ldquo;al limite&rdquo;,
+senza andare ad intaccare le risorse del nostro sistema operativo.</p>
+<h2 id="ingredienti">ingredienti</h2>
+<ul>
+<li>un go compiler (<em>dnf install go</em> su Fedora)</li>
+<li>una shell (nella ricetta userò la varietà <em>bash</em>)</li>
+<li>un kernel Linux ad una versione recente</li>
+<li>privilegi di root sul sistema</li>
+</ul>
+<h2 id="procedura">Procedura</h2>
+<p>Ad alto livello:<br>
+Necessiteremo di un applicativo da confinare, <br>
+ci occuperemo del setup dei cgroup sul nostro sistema Linux, <br>
+terremo monitorata la situazione per vedere gli effetti sul nostro applicativo.</p>
+<h3 id="cuciniamo-lapplicativo">Cuciniamo l&rsquo;applicativo</h3>
+<p>Nel contesto della High Availability, adottiamo una serie di pratiche per mitigare gli effetti degli
+errori più comuni a cui le applicazioni di una certa complessità sono generalmente soggette.</p>
+<p>Trattandosi questa di una ricettina veloce da fare quando riceviamo gli ospiti dell&rsquo;ultimo minuto,
+non andiamo ad appesantire l&rsquo;evento (e le nostre risorse di sistema) con un vero e proprio applicativo di questo calibro,
+andiamo piuttosto a crearne uno che simula alcune categorie di problemi riscontrati più di frequente.</p>
+<p>La scelta di Go come linguaggio e runtime per l&rsquo;applicativo è del tutto arbitraria, ed in questo caso una
+mia preferenza personale, qualsiasi altro linguaggio di programmazione generico andrà bene.</p>
+<p>Utilizziamo il framework go-gin per generare lo scheletro della nostra REST API,
+attorno al quale andiamo ad incastonare i diversi endpoint che ci interessano:</p>
+<ul>
+<li><strong>/ping</strong> - <em>Vogliamo vedere se l&rsquo;applicativo funziona</em></li>
+<li><strong>/generate-load/memory</strong> - <em>Vogliamo generare del carico artificiale sulla memoria</em></li>
+</ul>
+<p>Portiamo il nostro interesse sulla funzione <em>main</em>, ovvero da dove la logica
+della nostra applicazione prende il controllo del flusso di esecuzione (cerca: &ldquo;<strong>func main(</strong>&rdquo; )<br>
+La logica viene spiegata sotto al sorgente.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kn">package</span> <span class="nx">main</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;log&#34;</span>
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;math/rand&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="s">&#34;github.com/gin-gonic/gin&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">var</span> <span class="nx">mem</span> <span class="p">[][]</span><span class="kt">byte</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">const</span> <span class="nx">bufSize</span> <span class="p">=</span> <span class="mi">20</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span>
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">assertBufferOk</span><span class="p">()</span> <span class="p">[]</span><span class="kt">byte</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">buf</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span> <span class="nx">bufSize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">buf</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="s">&#34;memory alloc call returned nil buffer&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">buf</span><span class="p">)</span> <span class="o">!=</span> <span class="nx">bufSize</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="s">&#34;memory alloc call returnet different buffer size&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="nx">buf</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span> <span class="o">:=</span> <span class="nx">gin</span><span class="p">.</span><span class="nf">Default</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nf">GET</span><span class="p">(</span><span class="s">&#34;/ping&#34;</span><span class="p">,</span> <span class="kd">func</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">c</span><span class="p">.</span><span class="nf">JSON</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="nx">gin</span><span class="p">.</span><span class="nx">H</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;message&#34;</span><span class="p">:</span> <span class="s">&#34;pong&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">})</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nf">GET</span><span class="p">(</span><span class="s">&#34;/generate-load/memory&#34;</span><span class="p">,</span> <span class="kd">func</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">buf</span> <span class="o">:=</span> <span class="nf">assertBufferOk</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">buf</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="p">=</span> <span class="nb">byte</span><span class="p">(</span><span class="nx">rand</span><span class="p">.</span><span class="nf">Intn</span><span class="p">(</span><span class="mi">256</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="nx">mem</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">mem</span><span class="p">,</span> <span class="nx">buf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">		<span class="nx">c</span><span class="p">.</span><span class="nf">Status</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span><span class="line"><span class="cl">	
+</span></span><span class="line"><span class="cl">	<span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nf">Run</span><span class="p">(</span><span class="s">&#34;localhost:8080&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>L&rsquo;applicativo si basa sul framework gin, che includiamo in main tramite la riga <em>r := gin.Default()</em>,
+che corrediamo di una logica abbastanza frettolosa: non controlliamo errori o altro.</p>
+<p>Ciascun endpoint viene creato tramite r.GET(), che prende come argomenti l&rsquo;endpoint della REST API ed una funzione
+con cui gestire la richiesta, che come unico argomento supporta il meccanismo di gestionde delle richieste di gin.<br>
+Creiamo tale funzione tramite la definzione di una funzione anonima.</p>
+<p><strong>/ping</strong> è molto semplice da implementare. Ritorniamo una struttura JSON dove message: pong.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nf">GET</span><span class="p">(</span><span class="s">&#34;/ping&#34;</span><span class="p">,</span> <span class="kd">func</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">c</span><span class="p">.</span><span class="nf">JSON</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="nx">gin</span><span class="p">.</span><span class="nx">H</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="s">&#34;message&#34;</span><span class="p">:</span> <span class="s">&#34;pong&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">		<span class="p">})</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span></code></pre></div><p><strong>/generate-load/memory</strong> dovrà generare del carico artificiale sulla memoria, che potrebbe rappresentare
+una leak oppure una cattiva gestione delle risorse.</p>
+<p>La chiamata <strong>assertBufferOk()</strong> chiede al kernel 20Mi di memoria, controlla di ricevere esattamente
+quello che ha chiesto, fa fallire l&rsquo;intero programma se questo non accade.</p>
+<p>Coloriamo il buffer all&rsquo;interno del <code>for i := range buf {}</code> loop per evitare che il runtime di go
+vada a riciclarci la memoria.</p>
+<p>Il buffer ritornato viene appeso alla variabile globale che contiene la lista di buffer richiesti (per
+evitare che la memoria possa essere pulita dal garbage collector di go)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">	<span class="nx">r</span><span class="p">.</span><span class="nf">GET</span><span class="p">(</span><span class="s">&#34;/generate-load/memory&#34;</span><span class="p">,</span> <span class="kd">func</span><span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">gin</span><span class="p">.</span><span class="nx">Context</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">buf</span> <span class="o">:=</span> <span class="nf">assertBufferOk</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="nx">i</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">buf</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">			<span class="nx">buf</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="p">=</span> <span class="nb">byte</span><span class="p">(</span><span class="nx">rand</span><span class="p">.</span><span class="nf">Intn</span><span class="p">(</span><span class="mi">256</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">		<span class="p">}</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">		<span class="nx">mem</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">mem</span><span class="p">,</span> <span class="nx">buf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		
+</span></span><span class="line"><span class="cl">		<span class="nx">c</span><span class="p">.</span><span class="nf">Status</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">})</span>
+</span></span></code></pre></div><p>Il tutto verrà servito sulla :8080 di localhost:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl">	<span class="nx">err</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nf">Run</span><span class="p">(</span><span class="s">&#34;localhost:8080&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span></code></pre></div><h3 id="impiattamento">Impiattamento</h3>
+<p>Creiamo una folder per il progetto: <code>mkdir ./mem_limit &amp;&amp; cd Esc+.</code><br>
+Generiamo la struttura del modulo go, nella nuova folder: <code>go mod init</code><br>
+Depositiamo il contenuto del sorgente sopra in un file <code>main.go</code> della nuova directory.</p>
+<p>Apriamo due sessioni di una shell a piacere, ci posizioniamo nella directory del progetto appena creata.<br>
+Nella prima shell lanciamo il comando <code>go run .</code><br>
+La seconda shell la utilizzeremo per interagire col nostro applicativo tramite curl.</p>
+<p>Il piatto dovrebbe avere un aspetto simile a questo
+<img src="/posts/images/gorest_1-curl.png" alt="un paio di finestre di tmux sullo scenario descritto" title="REST api e curl"></p>
+<h3 id="mise-en-place">Mise en place</h3>
+<p>Andiamo a creare la struttura del nuovo cgroup che andiamo ad utilizzare per questo tutorial.</p>
+<p>Nel secondo terminale (o un terzo o a discrezione del maitre di sala), scaliamo verso l&rsquo;utenza di root
+secondo il meccanismo che preferiamo, personalmente mi sono abituato a <code>sudo -i</code></p>
+<p>terminale che controlla:<br>
+<strong>mkdir /sys/fs/cgroup/cage</strong> - per creare il cgroup <br>
+<strong>echo 100000000 &gt; /sys/fs/cgroup/cage/memory.max</strong> - per settare un limite di 100M sulla memoria del cgroup <br>
+<strong>echo 0 &gt; /sys/fs/cgroup/cage/memory.swap.max</strong> - per prevenire lo swapping all&rsquo;interno del cgroup</p>
+<p>terminale controllato (dove gira la nostra app):<br>
+<strong>echo $$</strong> - prendiamo il riferimento al PID di questa shell</p>
+<p>terminale che controlla:<br>
+<strong>echo <!-- raw HTML omitted --> &gt; /sys/fs/cgroup/cage/cgroup.procs</strong> - per confinare la shell (e figli) nel cgroup</p>
+<p>terminale controllato (dove gira la nostra app):<br>
+<strong>cat /proc/self/cgroup</strong> - per controllare di far parte del cgroup corretto</p>
+<p>A questo punto la mise en place dovrebbe avere un aspetto simile al seguente:
+<img src="/posts/images/gorest_1-cgroup-setup.png" alt="un paio di finestre di tmux sullo scenario descritto" title="setup del cgroup"></p>
+<h3 id="servizio">Servizio</h3>
+<p>A questo punto la shell confinata nel cgroup deve lanciare l&rsquo;applicativo con <code>go run .</code><br>
+Occorre avere anche una shell per lanciare le curl ed una shell che osserva il consumo di memoria del cgroup.</p>
+<p>nel terminale che osserva:<br>
+<strong>watch -n .3 -t &ldquo;cat /sys/fs/cgroup/cage/memory.current | awk &lsquo;{print $1/(1024*1024)}&rsquo;&rdquo;</strong></p>
+<p>Un paio di curl faranno straripare il livello di memoria rispetto al limite prefissato,<br>
+ed il nostro applicativo verrà oomkillato.
+<img src="/posts/images/gorest_1-oomkilled.png" alt="un paio di finestre di tmux sullo scenario descritto" title="rest api killed"></p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			<nav class="nav tags">
+				<ul class="tags">
+					
+					<li><a href="/tags/sys">sys</a></li>
+					
+					<li><a href="/tags/cgroup">cgroup</a></li>
+					
+					<li><a href="/tags/golang">golang</a></li>
+					
+					<li><a href="/tags/memory">memory</a></li>
+					
+				</ul>
+			</nav>
+			
+			
+		</div>
+	</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>
