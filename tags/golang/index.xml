@@ -9,7 +9,7 @@
     <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
     <atom:link href="/tags/golang/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Ricetta: limite di memoria per una (mock) REST API tramite cgroups</title>
+      <title>Ricetta: limite di memoria tramite cgroups</title>
       <link>/posts/ricetta-mem_limit_rest_cgroups/</link>
       <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
       <guid>/posts/ricetta-mem_limit_rest_cgroups/</guid>
