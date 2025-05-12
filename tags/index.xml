@@ -4,63 +4,70 @@
     <title>Tags on andrewdomain Blog</title>
     <link>/tags/</link>
     <description>Recent content in Tags on andrewdomain Blog</description>
-    <generator>Hugo -- gohugo.io</generator>
+    <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
+    <lastBuildDate>Sat, 10 May 2025 17:31:12 +0200</lastBuildDate>
     <atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>cgroups</title>
-      <link>/tags/cgroups/</link>
-      <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
-      <guid>/tags/cgroups/</guid>
-      <description></description>
-    </item>
-    <item>
-      <title>golang</title>
-      <link>/tags/golang/</link>
-      <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
-      <guid>/tags/golang/</guid>
-      <description></description>
-    </item>
-    <item>
-      <title>memory</title>
-      <link>/tags/memory/</link>
-      <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
-      <guid>/tags/memory/</guid>
-      <description></description>
-    </item>
-    <item>
-      <title>sys</title>
-      <link>/tags/sys/</link>
-      <pubDate>Thu, 19 Sep 2024 11:39:50 +0200</pubDate>
-      <guid>/tags/sys/</guid>
-      <description></description>
-    </item>
-    <item>
-      <title>containers</title>
+      <title>Containers</title>
       <link>/tags/containers/</link>
-      <pubDate>Mon, 06 Feb 2023 11:44:12 +0200</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>/tags/containers/</guid>
       <description></description>
     </item>
     <item>
-      <title>exploration</title>
+      <title>Linux</title>
+      <link>/tags/linux/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/linux/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Sys</title>
+      <link>/tags/sys/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/sys/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Cgroups</title>
+      <link>/tags/cgroups/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/cgroups/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Golang</title>
+      <link>/tags/golang/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/golang/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Memory</title>
+      <link>/tags/memory/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/memory/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Exploration</title>
       <link>/tags/exploration/</link>
-      <pubDate>Mon, 06 Feb 2023 11:44:12 +0200</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>/tags/exploration/</guid>
       <description></description>
     </item>
     <item>
-      <title>rootless</title>
+      <title>Rootless</title>
       <link>/tags/rootless/</link>
-      <pubDate>Mon, 06 Feb 2023 11:44:12 +0200</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>/tags/rootless/</guid>
       <description></description>
     </item>
     <item>
-      <title>container_adventures</title>
+      <title>Container_adventures</title>
       <link>/tags/container_adventures/</link>
-      <pubDate>Mon, 23 Jan 2023 15:17:23 +0200</pubDate>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>/tags/container_adventures/</guid>
       <description></description>
     </item>

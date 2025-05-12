@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>memory on andrewdomain Blog</title>
+    <title>Memory on andrewdomain Blog</title>
     <link>/tags/memory/</link>
-    <description>Recent content in memory on andrewdomain Blog</description>
-    <generator>Hugo -- gohugo.io</generator>
+    <description>Recent content in Memory on andrewdomain Blog</description>
+    <generator>Hugo</generator>
     <language>en-us</language>
     <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
     <atom:link href="/tags/memory/index.xml" rel="self" type="application/rss+xml" />

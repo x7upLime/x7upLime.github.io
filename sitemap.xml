@@ -3,7 +3,25 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>/</loc>
-    <lastmod>2024-09-19T11:39:50+02:00</lastmod>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/posts/object-storage-on-vps/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/tags/containers/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/tags/linux/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/posts/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/tags/sys/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
+  </url><url>
+    <loc>/tags/</loc>
+    <lastmod>2025-05-10T17:31:12+02:00</lastmod>
   </url><url>
     <loc>/tags/cgroups/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
@@ -14,16 +32,7 @@
     <loc>/tags/memory/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
   </url><url>
-    <loc>/posts/</loc>
-    <lastmod>2024-09-19T11:39:50+02:00</lastmod>
-  </url><url>
     <loc>/posts/ricetta-mem_limit_rest_cgroups/</loc>
-    <lastmod>2024-09-19T11:39:50+02:00</lastmod>
-  </url><url>
-    <loc>/tags/sys/</loc>
-    <lastmod>2024-09-19T11:39:50+02:00</lastmod>
-  </url><url>
-    <loc>/tags/</loc>
     <lastmod>2024-09-19T11:39:50+02:00</lastmod>
   </url><url>
     <loc>/posts/cgroups_fork-bomb/</loc>
@@ -31,9 +40,6 @@
   </url><url>
     <loc>/posts/a_brief_story_of_hier/</loc>
     <lastmod>2024-01-07T21:33:38+02:00</lastmod>
-  </url><url>
-    <loc>/tags/containers/</loc>
-    <lastmod>2023-02-10T18:54:22+02:00</lastmod>
   </url><url>
     <loc>/tags/exploration/</loc>
     <lastmod>2023-02-10T18:54:22+02:00</lastmod>
@@ -44,14 +50,14 @@
     <loc>/tags/rootless/</loc>
     <lastmod>2023-02-10T18:54:22+02:00</lastmod>
   </url><url>
-    <loc>/posts/container-adventures2/</loc>
-    <lastmod>2023-01-26T22:51:42+02:00</lastmod>
+    <loc>/posts/container-adventures1/</loc>
+    <lastmod>2023-01-27T16:11:54+02:00</lastmod>
   </url><url>
     <loc>/tags/container_adventures/</loc>
     <lastmod>2023-01-27T16:11:54+02:00</lastmod>
   </url><url>
-    <loc>/posts/container-adventures1/</loc>
-    <lastmod>2023-01-27T16:11:54+02:00</lastmod>
+    <loc>/posts/container-adventures2/</loc>
+    <lastmod>2023-01-26T22:51:42+02:00</lastmod>
   </url><url>
     <loc>/posts/awx-go/</loc>
     <lastmod>2022-10-07T21:23:17+02:00</lastmod>

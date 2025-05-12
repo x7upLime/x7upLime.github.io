@@ -4,10 +4,17 @@
     <title>andrewdomain Blog</title>
     <link>/</link>
     <description>Recent content on andrewdomain Blog</description>
-    <generator>Hugo -- gohugo.io</generator>
+    <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Sep 2024 11:39:50 +0200</lastBuildDate>
+    <lastBuildDate>Sat, 10 May 2025 17:31:12 +0200</lastBuildDate>
     <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>artisanal Object Storage</title>
+      <link>/posts/object-storage-on-vps/</link>
+      <pubDate>Sat, 10 May 2025 17:31:12 +0200</pubDate>
+      <guid>/posts/object-storage-on-vps/</guid>
+      <description>To add the qrcode generation feature for an app that I&amp;rsquo;m building, I would need to store the images somewhere, so that the user can retrieve them without computing them every time. To do that, I would need an object-storage.&#xA;Different cloud providers bill it in different ways. Most of my stuff I deploy it on Linode, that charges $5/month for some GBs of object storage and then an extra $0.</description>
+    </item>
     <item>
       <title>Ricetta: limite di memoria tramite cgroups</title>
       <link>/posts/ricetta-mem_limit_rest_cgroups/</link>
@@ -37,18 +44,18 @@
       <description>Rootless is one big deal in the container-new-world-order; was one of podman&amp;rsquo;s most captivating features.. then everyone seem to have moved to(supported) rootless.&#xA;Community efforts were made to demistify the rootless mechanism, then everyone was adding support to rootless&amp;hellip; But how does it work? Does it work only for containers?&#xA;Of course it doesn&amp;rsquo;t work only for containers.. the whole rootless-thingy relies on the namespaces mechanism, which is something that lives in the linux kernel(maybe other kernels as well.</description>
     </item>
     <item>
+      <title>Container Adventures 1</title>
+      <link>/posts/container-adventures1/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/posts/container-adventures1/</guid>
+      <description>Since this is the first post.. I may start by saying that this will be a series documenting my learning process for containers/golang.&#xA;I&amp;rsquo;m finding out about myself, that I tend to implement the head-first approach when I have no clear ideas about what I&amp;rsquo;m doing.. That would mean that I&amp;rsquo;ll definitely (when not bothering the community.. or the community not answering me) be drawing conclusions and answering the conclusions that I drew myself.</description>
+    </item>
+    <item>
       <title>Container Adventures 2</title>
       <link>/posts/container-adventures2/</link>
       <pubDate>Mon, 23 Jan 2023 15:17:23 +0200</pubDate>
       <guid>/posts/container-adventures2/</guid>
       <description>This whole thing happened after a couple of more trials in the container world and gave birth to those foolish junior prs/issues on kubernetes/minikube&#xA;#15678 ca3&#xA;#15696 ca3&#xA;#15677 ca3 - the issue.. but the discussion is on slack&#xA;#15491 ca3 &amp;ndash; not able to rebase + change in workflow&#xA;#15697 the create-volume bug&#xA;#15699 the create-volume proposed solution&#xA;Solving container creation issues for the podman driver &amp;ndash; minikube We were able to merge the newly proposed cache-invalidation mechanism (not yet actually.</description>
-    </item>
-    <item>
-      <title>Container Adventures 1</title>
-      <link>/posts/container-adventures1/</link>
-      <pubDate>Tue, 22 Nov 2022 22:44:11 +3100</pubDate>
-      <guid>/posts/container-adventures1/</guid>
-      <description>Since this is the first post.. I may start by saying that this will be a series documenting my learning process for containers/golang.&#xA;I&amp;rsquo;m finding out about myself, that I tend to implement the head-first approach when I have no clear ideas about what I&amp;rsquo;m doing.. That would mean that I&amp;rsquo;ll definitely (when not bothering the community.. or the community not answering me) be drawing conclusions and answering the conclusions that I drew myself.</description>
     </item>
     <item>
       <title>when work meets interests</title>

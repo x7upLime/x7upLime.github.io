@@ -1,34 +1,36 @@
 <!DOCTYPE html>
-<html><head>
+<html><head lang="en">
 	<meta charset="utf-8" />
 	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Ricetta: limite di memoria tramite cgroups - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
 di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
 " />
 	<meta property="og:image" content=""/>
-	<meta property="og:title" content="Ricetta: limite di memoria tramite cgroups" />
-<meta property="og:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
-di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
-" />
-<meta property="og:type" content="article" />
-<meta property="og:url" content="/posts/ricetta-mem_limit_rest_cgroups/" /><meta property="article:section" content="posts" />
-<meta property="article:published_time" content="2024-09-19T11:39:50+02:00" />
-<meta property="article:modified_time" content="2024-09-19T11:39:50+02:00" />
+	<meta property="og:url" content="/posts/ricetta-mem_limit_rest_cgroups/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Ricetta: limite di memoria tramite cgroups">
+  <meta property="og:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
+di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-09-19T11:39:50+02:00">
+    <meta property="article:modified_time" content="2024-09-19T11:39:50+02:00">
+    <meta property="article:tag" content="Sys">
+    <meta property="article:tag" content="Cgroups">
+    <meta property="article:tag" content="Golang">
+    <meta property="article:tag" content="Memory">
 
-<meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Ricetta: limite di memoria tramite cgroups"/>
-<meta name="twitter:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
-di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.
-"/>
-<script src="/js/feather.min.js"></script>
-	
-	
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Ricetta: limite di memoria tramite cgroups">
+  <meta name="twitter:description" content="Un breve tutorial che mostra come scrivere una mock REST API da confinare all&#39;interno
+di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello che accade vicino al limite.">
+
         <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
 	
 
 	
-	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
-	
-	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
 		
 		
 		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
@@ -52,15 +54,17 @@ di un cgroup, rispetto alla memoria. Creando le condizioni per osservare quello 
 </header>
 
 <main>
-	<article>
-		<div class="title">
-			<h1 class="title">Ricetta: limite di memoria tramite cgroups</h1>
-			<div class="meta">Posted on Sep 19, 2024</div>
-		</div>
-		
-
-		<section class="body">
-			<p>Mostreremo come confinare un&rsquo;applicazione tramite cgroup rispetto alla memoria,
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Ricetta: limite di memoria tramite cgroups</h1>
+          <div class="meta">Posted on Sep 19, 2024</div>
+        </div>
+        
+        <section class="body">
+          <p>Mostreremo come confinare un&rsquo;applicazione tramite cgroup rispetto alla memoria,
 creando le condizioni di osservare quello che accade vicino &ldquo;al limite&rdquo;,
 senza andare ad intaccare le risorse del nostro sistema operativo.</p>
 <h2 id="ingredienti">ingredienti</h2>
@@ -212,43 +216,53 @@ Occorre avere anche una shell per lanciare le curl ed una shell che osserva il c
 ed il nostro applicativo verrà oomkillato.
 <img src="/posts/images/gorest_1-oomkilled.png" alt="un paio di finestre di tmux sullo scenario descritto" title="rest api killed"></p>
 
-		</section>
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+              <li><a href="/tags/cgroups">cgroups</a></li>
+              
+              <li><a href="/tags/golang">golang</a></li>
+              
+              <li><a href="/tags/memory">memory</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
 
-		<div class="post-tags">
-			
-			
-			<nav class="nav tags">
-				<ul class="tags">
-					
-					<li><a href="/tags/sys">sys</a></li>
-					
-					<li><a href="/tags/cgroups">cgroups</a></li>
-					
-					<li><a href="/tags/golang">golang</a></li>
-					
-					<li><a href="/tags/memory">memory</a></li>
-					
-				</ul>
-			</nav>
-			
-			
-		</div>
-	</article>
+      
+      
+    </div>
+
+    </article>
 </main>
 <footer>
-  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><i data-feather="github"></i></a>
-    <a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
-    <a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><i data-feather="mail"></i></a>
-    <a class="border"></a></div>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
   <div class="footer-info">
-    2024  <a
+    2025  <a
       href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
   </div>
 </footer>
 
 
-<script>
-  feather.replace()
-</script></div>
+  
+
+
+
+</div>
     </body>
 </html>

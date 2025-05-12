@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>exploration on andrewdomain Blog</title>
+    <title>Exploration on andrewdomain Blog</title>
     <link>/tags/exploration/</link>
-    <description>Recent content in exploration on andrewdomain Blog</description>
-    <generator>Hugo -- gohugo.io</generator>
+    <description>Recent content in Exploration on andrewdomain Blog</description>
+    <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 06 Feb 2023 11:44:12 +0200</lastBuildDate>
+    <lastBuildDate>Fri, 10 Feb 2023 18:54:22 +0200</lastBuildDate>
     <atom:link href="/tags/exploration/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>notes on `Rootless`</title>

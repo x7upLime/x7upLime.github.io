@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>artisanal Object Storage - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="How to create an object storage without raising the cloud bill
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/object-storage-on-vps/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="artisanal Object Storage">
+  <meta property="og:description" content="How to create an object storage without raising the cloud bill">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-05-10T17:31:12+02:00">
+    <meta property="article:modified_time" content="2025-05-10T17:31:12+02:00">
+    <meta property="article:tag" content="Sys">
+    <meta property="article:tag" content="Linux">
+    <meta property="article:tag" content="Containers">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="artisanal Object Storage">
+  <meta name="twitter:description" content="How to create an object storage without raising the cloud bill">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">artisanal Object Storage</h1>
+          <div class="meta">Posted on May 10, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>To add the qrcode generation feature for an app that I&rsquo;m building, I would need to store the images somewhere, so
+that the user can retrieve them without computing them every time. To do that, I would need an <strong>object-storage</strong>.</p>
+<p>Different cloud providers bill it in different ways. Most of my stuff I deploy it on Linode,
+that charges $5/month for some GBs of object storage and then an extra $0.002 for extra GB.
+Then Oracle Cloud offer it for free, but I wasn&rsquo;t able to understand their UI to find the
+object storage. Then Vercel offer it for free on the developer tier, but then you have to install some sdk to access it? Nuts 🤷</p>
+<p>So I figured.. how much space do I have on the local filesystem of my tiny nanode?</p>
+<pre tabindex="0"><code>[cloud-user@garage01-andrewdomain ~]$ df -h | grep -v tmpfs
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda         25G  2.3G   21G  10% /
+</code></pre><p>Nice.</p>
+<h2 id="how-to-set-up-limits">How to set up limits</h2>
+<p>We don&rsquo;t want to have our little nanode full of qrcode images.. so it would be wise to set up a limit
+around the &ldquo;disk&rdquo; that we&rsquo;re gonna give our new object-storage server.</p>
+<p>When you build an ISO file, like the one that you burn on a USB device
+to install your Linux distro, you usually allocate some disk space to a file and create a loop device that you then
+use as a mount point to fill it with content.<br>
+We&rsquo;re gonna use the same principle.</p>
+<pre tabindex="0"><code>$ touch ./nasty 
+$ sudo dd if=/dev/zero of=./nasty bs=1KiB count=3000000
+</code></pre><p>Now, to use our newly created file as a loop device, we can spawn a block device whose name is like /dev/loopX,
+provided that it is not occupied yet.</p>
+<p>To check for any loop device in use (empty output is definitely possible):</p>
+<pre tabindex="0"><code>$ losetup --list
+</code></pre><p>To use our newly created file as a loop device, we could use<br>
+<code>$ sudo losetup -f ./nasty</code>, where <em>-f</em> means &ldquo;find first available&rdquo;
+or we can choose a name (provided that it is not occupied) with the following command line.</p>
+<pre tabindex="0"><code>$ sudo losetup /dev/loop0 ./nasty
+</code></pre><p>Our /dev/loop0 will show up in the output of <code>lsblk</code>, and will be usable
+as any other block device on the system.</p>
+<h2 id="mounting-it-persistently">Mounting it persistently</h2>
+<p>Now that we have a device of a specific size, we can make a filesystem on it and mount it.</p>
+<p>First we create the filesystem on the loop device, and we place the definition of the mount on /etc/fstab.</p>
+<pre tabindex="0"><code>$ sudo mkfs.xfs /dev/loop0
+$ echo &#34;&#34; | sudo tee -a /etc/fstab
+$ echo &#34;# Artisanal Object Storage&#34; | sudo tee -a /etc/fstab
+$ echo &#34;UUID=$(lsblk --output=UUID /dev/loop0 | tail -n 1) /mnt/objs-artisanal xfs defaults 0 0&#34; | sudo tee -a /etc/fstab
+$ sudo systemctl daemon-reload
+</code></pre><p>Now we can verify that the mounts in the fstab file work correctly, and if they do, we move forward&hellip;</p>
+<pre tabindex="0"><code>$ sudo mount -a
+$ df -h | grep loop0
+</code></pre><h2 id="the-container-image-for-the-object-storage-server-logic">The container image for the object storage server logic</h2>
+<p>I chose minio as the object-storage server. For no particular reason.</p>
+<p>To run the minio container available at <em>docker.io/minio/minio</em>, one could either</p>
+<pre tabindex="0"><code>$ podman run -it -p 9000:9000 --rm -v /mnt/objs-artisanal/:/data:z docker.io/minio/minio server /data
+</code></pre><p><strong>or even better</strong>, manage it as a systemd service using the podman systemd units (<strong>man 5 podman-systemd.unit</strong>)</p>
+<p>So we should first think of credentials for this service and save them somewhere.<br>
+Then we could create a podman secret like so:</p>
+<pre tabindex="0"><code>$ podman secret create minio-pwd ./miniopwd
+</code></pre><p>That secret will be mounted inside the container, as an env variable,
+one that the app inside the container knows and watches.</p>
+<p>The path for podman systemd units is: <strong>~/.config/containers/systemd/</strong><br>
+and we want to put the following content inside of the file <strong>minio.container</strong></p>
+<pre tabindex="0"><code># ~/.config/containers/systemd/minio.container
+
+[Container]
+Image=docker.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+
+Secret=minio-usr,type=env,target=MINIO_ROOT_USER
+Secret=minio-pwd,type=env,target=MINIO_ROOT_PASSWORD
+
+Network=short.network
+Volume=/mnt/objs-artisanal:/data:z
+PublishPort=9000:9000
+
+Exec=server /data
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target default.target
+</code></pre><p>Then we must inform systemd of the change in available user units:</p>
+<pre tabindex="0"><code>$ systemd --user daemon-reload
+</code></pre><p>Then if we configured everything correctly, we should have a working container:</p>
+<pre tabindex="0"><code>$ systemctl --user start minio
+$ journalctl -e    # shows system logs
+$ ss -tlpn         # shows listening tcp sockets
+</code></pre><p>Now.. provided that minio does not change the location of <a href="https://min.io/docs/minio/linux/reference/minio-mc.html#quickstart">this document</a>,
+you could read it to understand how to acquire the <code>mc</code> command line tool (a.k.a. minio client).</p>
+<p>Then you could do something like this (if you have your password in the env var <em>$secretmini</em>)</p>
+<pre tabindex="0"><code>$ mc alias set artisanal http://127.0.0.1:9000 &lt;username&gt; $secretmini
+</code></pre><p>Now you could test if everything works with</p>
+<pre tabindex="0"><code>$ mc admin info artisanal
+</code></pre><p>Notice how until now.. you never needed root privileges to spawn the minio service.</p>
+<h2 id="write-to-it">Write to it</h2>
+<p>For somebody that does not know much about an object storage&hellip;</p>
+<p>First we create a bucket</p>
+<pre tabindex="0"><code>$ mc mb artisanal/trashcan
+</code></pre><p>then create some content</p>
+<pre tabindex="0"><code>$ touch ./trash
+$ dd if=/dev/urandom of=./trash bs=1MB count=100
+</code></pre><p>and upload it</p>
+<pre tabindex="0"><code>$ mc cp ./trash artisanal/trashcan
+</code></pre><p><em>Green as Success!</em>
+<img src="/posts/images/trashcan_upload.png" alt="Green as Success" title="green as success"></p>
+<p>Then you can always take it out!</p>
+<pre tabindex="0"><code>$ mc ls artisanal/trashcan
+$ mc cp artisanal/trashcan/trash ./more-trash
+</code></pre><h1 id="finale">Finale</h1>
+<p>One would not want to use this solution for something that needs be reliable..<br>
+On this kind of setup, backup/restore and disaster recovery (a.k.a. DR) procedures are not considered.</p>
+<p>When you use a cloud provider&rsquo;s object storage service,
+they take care of the backup/restore and DR procedures for you.
+Plus they make the service highly available to you and fast to access on the selected regions,
+all things of the infra world that are complex and cost money.</p>
+<p>Am I gonna use this dirtyness for a project?<br>
+<em>Yes, definitely.</em></p>
+<p>Well.. let&rsquo;s say a project and not a product.</p>
+<h1 id="bonus">BONUS</h1>
+<p>SQL databases are no file servers. They are not optimized to serve byte-objects.<br>
+Of course technically you could use the <code>bytea</code> object in (e.g.) Postgres, but it smells and looks bad.</p>
+<p>So you either keep it in your filesystem (looks bad, backup plans look worse, you don&rsquo;t scale), or you do it the
+modern-world way and put it in a specialized place that exposes and endpoint that you can talk to, to share objects (a.k.a. blobs),
+i.e. an object storage server, that exposes a REST API endpoint and is responsible for all the sharing/archiving logic, so
+you don&rsquo;t have to.</p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+              <li><a href="/tags/linux">linux</a></li>
+              
+              <li><a href="/tags/containers">containers</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>
