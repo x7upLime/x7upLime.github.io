@@ -216,7 +216,24 @@ to accomplish so, looks like the following:</p>
 </span></span><span class="line"><span class="cl">virsh net-autostart blog-jacket
 </span></span></code></pre></div></li>
 </ol>
-<h4 id="create-a-new-virtual-machine">create a new virtual machine</h4>
+<p>I want to be in control of each virtual machine&rsquo;s IP address, and this
+is doable in a number of ways, either with DHCP reservations based on MAC address
+inside the libvirt network&rsquo;s definition, or by just claiming static IP
+addresses inside the virtual machine&rsquo;s network stack.</p>
+<p>We can do either since we are in control of both the MAC address and
+first boot parameters that influence the network configuration.</p>
+<p>My blog-jacket.xml file looks like the following:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-xml" data-lang="xml"><span class="line"><span class="cl"><span class="nt">&lt;network&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;name&gt;</span>blog-jacket<span class="nt">&lt;/name&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;forward</span> <span class="na">mode=</span><span class="s">&#39;nat&#39;</span><span class="nt">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;nat&gt;</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&lt;port</span> <span class="na">start=</span><span class="s">&#39;1024&#39;</span> <span class="na">end=</span><span class="s">&#39;65535&#39;</span><span class="nt">/&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;/nat&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;/forward&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;bridge</span> <span class="na">name=</span><span class="s">&#39;virbr2&#39;</span> <span class="na">stp=</span><span class="s">&#39;on&#39;</span> <span class="na">delay=</span><span class="s">&#39;0&#39;</span><span class="nt">/&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;ip</span> <span class="na">address=</span><span class="s">&#39;192.168.126.1&#39;</span> <span class="na">netmask=</span><span class="s">&#39;255.255.255.0&#39;</span> <span class="nt">/&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="nt">&lt;/network&gt;</span>
+</span></span></code></pre></div><h4 id="create-a-new-virtual-machine">create a new virtual machine</h4>
 <p>We&rsquo;re starting from the point where you have a qcow2 disk for your operating system,
 placed inside your project&rsquo;s path (e.g. /var/lib/libvirt/images/blogposts)
 under a (e.g.) fed42/ directory. The rest of the steps are the same for each virtual machine:</p>
