@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Bare_libvirtd - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="A very minimal and maintainable libvirt setup,
+with a step by step guide.
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/bare_libvirtd/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Bare_libvirtd">
+  <meta property="og:description" content="A very minimal and maintainable libvirt setup,
+with a step by step guide.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-08-21T23:08:51+02:00">
+    <meta property="article:modified_time" content="2025-08-21T23:08:51+02:00">
+    <meta property="article:tag" content="Sys">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Bare_libvirtd">
+  <meta name="twitter:description" content="A very minimal and maintainable libvirt setup,
+with a step by step guide.">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Bare_libvirtd</h1>
+          <div class="meta">Posted on Aug 21, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>Create virtual machines using just virsh on a linux KVM/QEMU hypervisor.</p>
+<h2 id="cheat-sheet">Cheat sheet</h2>
+<p>Check info about the qcow2 image that you&rsquo;re looking at:<br>
+<strong>qemu-img info &lt;/path/to/file&gt;</strong></p>
+<p>Overlay a base qcow2 image:<br>
+<strong>qemu-img create -f qcow2 -b &lt;/path/to/base/image&gt; -F qcow2 &lt;/path/to/new/image&gt;</strong></p>
+<p>Overlay a base qcow2 image with specific virtual size:<br>
+<strong>qemu-img create -f qcow2 -b &lt;/path/to/base/image&gt; -F qcow2 &lt;/path/to/new/image&gt; <!-- raw HTML omitted -->G</strong></p>
+<p>Shows your active libvirt networks:<br>
+<strong>virsh net-list</strong></p>
+<p>Duplicate a network&rsquo;s xml definition:<br>
+<strong>virsh net-dumpxml &lt;network&gt;</strong></p>
+<p>Start a libvirt network:<br>
+<strong>virsh start &lt;network&gt;</strong></p>
+<p>Start a libvirt network whenever libvirtd comes up:<br>
+<strong>virsh autostart &lt;network&gt;</strong></p>
+<p>Shows mac addresses and dhcp leases on a network:<br>
+<strong>virsh net-dhcp-leases &lt;network&gt;</strong></p>
+<p>Power off the machine from the cable:<br>
+<strong>virsh destroy &lt;machine&gt;</strong></p>
+<p>Power off the machine from the OS:<br>
+<strong>virsh shutdown &lt;machine&gt;</strong></p>
+<p>Remove the machine from libvirt:<br>
+<strong>virsh undefine &lt;machine&gt;</strong></p>
+<p>Attach a physical (except that it&rsquo;s virtual) console to a running machine:<br>
+<strong>virsh console &lt;machine&gt;</strong></p>
+<h2 id="actual-article">Actual article</h2>
+<p>There are many ways to approach virtualization,
+depending on your needs — whether personal or enterprise-level.
+In this article, I’ll focus on personal use, e.g. running VMs on a laptop.</p>
+<p>Then depending on the platform that you&rsquo;re on you have different options.<br>
+I will not even quote all of them because I do not know them or have used them.
+I think I only used virtualbox a couple of times on a windows machine many years ago.</p>
+<p>The platform that we&rsquo;re focusing on is a Linux based workstation,
+in my case is a Fedora-based, but could be any I suppose.</p>
+<p>Each platform has its own way of managing VMs,
+but with libvirt on QEMU/KVM you can handle everything from the shell without relying on GUIs,
+keeping yourself closer to the implementation, maybe learning
+a couple of things here and there.</p>
+<h3 id="libvirtd">libvirtd</h3>
+<p>libvirt is the name of a library used under Linux to control the QEMU/KVM stack
+and bring a user interface to the table. The same name also refers to a daemon
+that is constantly running on your system that takes care of the management
+of all the components: <strong>libvirtd</strong>.</p>
+<p>You can access the running daemon from a graphical user interface or from
+the command line with a tool called <strong>virsh</strong>, in a similar fashion as
+the way you use docker to interact with the dockerd daemon that manages your
+containerized workloads.</p>
+<p>Now libvirt kinda expects your virtual machine disks to be under a certain
+path on your system: &ldquo;<strong>/var/lib/libvirt/images</strong>&rdquo;. And I say kinda because the
+disks or ISO files can be wherever you want really. You can also create directories
+under /var/lib/libvirt/images/ to keep things tidy.</p>
+<p>And tidiness is the difference between a sysadmin and a great sysadmin,
+a piece of software and a great piece of software,.. a working setup and
+a maintainable setup.</p>
+<h3 id="a-tidy-setup-example">A tidy setup example</h3>
+<p>After several settings I find myself at ease with a setup similar to the following:
+<img src="/posts/images/bare_libvirt_setup.png" alt="bare libvirt setup" title="images fs content"></p>
+<p>Now each pane in this window shows something about the setup, so let&rsquo;s take it step by step.</p>
+<ol>
+<li>
+<p><em>libvirtd&rsquo;s image filesystem</em><br>
+Here instead of putting everything under the disks filesystem, we&rsquo;re organizing
+by projects or any other meaningful distinction.<br>
+<img src="/posts/images/libvirt_filesystem_content.png" alt="libvirt images filesystem content" title="images fs content"></p>
+</li>
+<li>
+<p><em>Inside each folder</em><br>
+Here you should find one (could be more) directory that contain just a base qcow2 image
+that should not be written (i.e. <em>fed42</em> in the screenshot below).
+This serves the purpose of being a base for an overlay file
+that is the end virtual machine&rsquo;s actual disk image.<br>
+Then more directories each containing files needed to generate the end virtual machine.<br>
+In regard of the names, I chose to prefix a label that represents the disk on which the vm is based.<br>
+<img src="/posts/images/blogposts_fs_content.png" alt="each directory&rsquo;s content" title="blogposts fs content"><br>
+Now overlay means that given some virtual machines with the same operating system
+version, instead of having a full disk for each, we can have a shared base, and
+each virtual machine&rsquo;s disk will be a file that references the content of the base disk,
+and directly contains only the differences from that base.<br>
+In regard of the names of the folder representing virtual machines, I chose
+to append a prefix that references the base qcow2 disk.</p>
+</li>
+<li>
+<p><em>vm folder</em><br>
+Inside <em>fed42__idm</em> we have some files<br>
+<img src="/posts/images/vm_dir_content.png" alt="vm dir content" title="vm dir content"></p>
+<ul>
+<li><strong>system.qcow2</strong> - is the overlay file based on fed42&rsquo;s disk<br>
+systemd.qcow2, as opposed to app.qcow2 or app1.qcow2/app2.qcow2 and so on&hellip;<br>
+Those in order to indicate a separation between the operating system disk,
+and eventually one or more disks needed by an application that runs on the OS.<br>
+Notice how this file weights just a couple hundreds of KB after creation.</li>
+<li><strong>install.sh</strong> - is a tiny parameterized script with just a command line</li>
+<li><strong>user-data</strong> - is a yaml containing params to pass to a svc inside the vm at boot</li>
+</ul>
+</li>
+<li>
+<p><em>the install file</em><br>
+Very minimal, just a command line.<br>
+Why? Because you shouldn&rsquo;t rely just on your memory for the command line that spawns
+that particular virtual machine, nor your bash&rsquo;s (or any) memory, because it is limited, which
+means that if for a week you work on something else, you need to rebuild everything.<br>
+I found this especially useful, because if you maintain this install.sh file,
+you can destroy/undefine the virtual machine and recreate it fresh in no time.
+Useful as a scratch space.<br>
+<img src="/posts/images/install_script.png" alt="install.sh script" title="install.sh script"></p>
+</li>
+<li>
+<p><em>user-data</em><br>
+These are small yaml files.
+Same format style used by Ansible and Kübernetes.<br>
+Here we are specifying a couple of modules of cloud-init that should be invoked
+at boot time in our newly created virtual machine, so that we can write and
+version, for each virtual machine a set of configurations that we would like
+to find there, such as users with certain ssh keys and sudoers policies and so on&hellip;</p>
+</li>
+</ol>
+<h3 id="tutorial">tutorial</h3>
+<p>Now say we want a new virtual machine for our (e.g.) mail delivery and access needs.</p>
+<h4 id="prereq--base-image">prereq | Base image</h4>
+<p>The prerequisite is to have a <em>Fedora Base qcow2 image</em> or any
+image for a specific operating system.</p>
+<p>We are looking specifically for a qcow2 image and not an ISO file. The ISO file is an archive containing
+a set of artifacts that you need to install an operating system, usually you burn that on a
+usb stick and install it on baremetal.
+While the qcow2 is the already installed operating system.</p>
+<p>You&rsquo;ll find that the various projects refer to those images as &ldquo;Cloud Images&rdquo;
+when you&rsquo;ll looking at their download page.
+In the case of Fedora latest (as of today: Fedora 42), you&rsquo;ll just have to google
+&ldquo;fedora download&rdquo; and click your way towards <em><a href="https://fedoraproject.org/cloud/download">https://fedoraproject.org/cloud/download</a></em>.</p>
+<p>You&rsquo;re looking for a Cloud Image in the QEMU (qcow2) format.
+Careful not to download any other type, even if qcow2 image, the &ldquo;Cloud Image&rdquo; is the one
+optimized to run in a virtualized setup that is controlled <em>cloud-style</em>, this means
+that services such as cloud-init are already baked inside the image,
+and also that the kernel is optimized for a virtual deploy.</p>
+<p><img src="/posts/images/get_fed42.png" alt="Get Fedora Server" title="Get Fedora Server"></p>
+<h4 id="prereq--libvirt-network">prereq | libvirt network</h4>
+<p>Each libvirt setup has a network called &ldquo;default&rdquo;, and in order to separate
+your virtual machines and keep tidiness, you could have another or many other different
+networks for different needs.</p>
+<p>In my case I&rsquo;ll create a network called &ldquo;blog-jacket&rdquo;, and a possible procedure
+to accomplish so, looks like the following:</p>
+<ol>
+<li>Dump the xml definition of the default network:
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">virsh net-dumpxml default &gt; blog-jacket.xml
+</span></span></code></pre></div></li>
+<li>Make your modifications</li>
+<li>Define a new libvirt network from an xml file:
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">virsh net-define blog-jacket.xml
+</span></span></code></pre></div></li>
+<li>Start now, and whenever you start your libvirtd instance:
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">virsh net-start blog-jacket
+</span></span><span class="line"><span class="cl">virsh net-autostart blog-jacket
+</span></span></code></pre></div></li>
+</ol>
+<h4 id="create-a-new-virtual-machine">create a new virtual machine</h4>
+<p>We&rsquo;re starting from the point where you have a qcow2 disk for your operating system,
+placed inside your project&rsquo;s path (e.g. /var/lib/libvirt/images/blogposts)
+under a (e.g.) fed42/ directory. The rest of the steps are the same for each virtual machine:</p>
+<ol>
+<li>
+<p>Create the folder for the virtual machine<br>
+Inside our project: <strong>/var/lib/libvirt/images/blogposts</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mkdir fed42__mail
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> fed42__mail
+</span></span></code></pre></div></li>
+<li>
+<p>Add a system.qcow2 disk<br>
+Our system disk is going to be an overlay file based on the image that we downloaded
+from the Fedora Project download page.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">qemu-img create -f qcow2 -b /var/lib/libvirt/images/blogposts/fed42/Fedora-Cloud-Base-Generic-42-1.1.x86_64.qcow2 -F qcow2 system.qcow2
+</span></span></code></pre></div><p>Now you can inspect the image and see that it has a disk size and a virtual size.<br>
+The former is the actual size of the newly created qcow2 file on your disk, while the
+latter represents a size up to which the guest operating system running on this qcow2 file
+can write. You can even extend this by appending a &lt;SIZE&gt;G parameter at the end of the previous command line.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">qemu-img info system.qcow2
+</span></span></code></pre></div></li>
+<li>
+<p>Add some install.sh file<br>
+You can have a base install.sh that you copy around, they are mostly similar
+between different virtual machines. The content is more or less this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="cp">#!/usr/bin/bash
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="nv">vm_network</span><span class="o">=</span><span class="s2">&#34;blog-jacket&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">vm_osname</span><span class="o">=</span><span class="s2">&#34;fedora-unknown&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">path_to_disks</span><span class="o">=</span><span class="s2">&#34;/var/lib/libvirt/images/blogposts&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nv">vm_name</span><span class="o">=</span><span class="s2">&#34;mail&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">vm_memory</span><span class="o">=</span><span class="s2">&#34;2048&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">vm_cpus</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="nv">vm_mac</span><span class="o">=</span>52:54:00:aa:bb:01
+</span></span><span class="line"><span class="cl"><span class="nv">vm_systemdisk</span><span class="o">=</span><span class="s2">&#34;</span><span class="si">${</span><span class="nv">path_to_disks</span><span class="si">}</span><span class="s2">/fed42__mail/system.qcow2&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">virt-install <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --connect qemu:///system <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --name <span class="s2">&#34;</span><span class="si">${</span><span class="nv">vm_name</span><span class="si">}</span><span class="s2">&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --memory <span class="s2">&#34;</span><span class="si">${</span><span class="nv">vm_memory</span><span class="si">}</span><span class="s2">&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --machine q35 <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --vcpus <span class="s2">&#34;</span><span class="si">${</span><span class="nv">vm_cpus</span><span class="si">}</span><span class="s2">&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --cpu host-passthrough <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --osinfo <span class="nv">name</span><span class="o">=</span><span class="si">${</span><span class="nv">vm_osname</span><span class="si">}</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --network <span class="nv">network</span><span class="o">=</span><span class="si">${</span><span class="nv">vm_network</span><span class="si">}</span>,model<span class="o">=</span>virtio,mac<span class="o">=</span><span class="si">${</span><span class="nv">vm_mac</span><span class="si">}</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --disk <span class="s2">&#34;</span><span class="si">${</span><span class="nv">vm_systemdisk</span><span class="si">}</span><span class="s2">&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --virt-type kvm <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --graphics none <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --cloud-init network-config<span class="o">=</span>./network-config.yml,meta-data<span class="o">=</span>./meta-data.yml,user-data<span class="o">=</span>./user-data.yml <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>        --import
+</span></span></code></pre></div><p>Here I said vm_osname=&ldquo;fedora-unknown&rdquo; because I couldn&rsquo;t find fedora42 in the
+output of <code>virt-install --osinfo list</code>, a.k.a. the place that you should look for this parameter.</p>
+<p>One should take care that vm_mac is different across different virtual machines on the same network.<br>
+You can check your active virtual machines and their mac address with: <code>virsh net-dhcp-leases blog-jacket</code></p>
+<p>Then you could add a parameter such as: vm_appdisk under vm_systemdisk, and add a
+&ndash;disk &ldquo;${vm_appdisk}&rdquo; as a parameter to the virt-install command.<br>
+In order to create a raw disk you could run: <code>qemu-img create -f qcow2 app.qcow2 60G</code>,
+and that would not be an overlay image.</p>
+<p>Ah yeah.. also those cloud-init files are not there yet.</p>
+</li>
+<li>
+<p>Add the cloud-init files<br>
+Once able to make this work with your setup, it become very easy to
+make and maintain changes to your virtual machine&rsquo;s configuration.</p>
+<p>In the screenshots below I&rsquo;m using three distinct yml files, one for
+meta data, one for user data, one for network configuration: namely <strong>meta-data.yml</strong>,
+<strong>user-data.yml</strong> and <strong>network-config.yml</strong>. Each serving a different purpose.</p>
+<p>In my case user-data contains parameters for the cloud-init modules in order
+to create some users that I will use to ssh into the machines. meta-data contains
+the hostname of the machine and network-config will contain the minimum amount of network definitions
+to make this virtual machine work with the rest of the infrastructure:<br>
+The libvirt network that I&rsquo;m using does not have DHCP features, so all the IPs
+must be statically configured inside the virtual machines. Also there is another
+virtual machine inside the blog-jacket network (192.168.126.0/24), that exports a dns service.</p>
+<p><img src="/posts/images/cloud-init_files.png" alt="cloud-init files" title="cloud-init files"></p>
+<p>About how to write those files: there are explanations about network <a href="https://cloudinit.readthedocs.io/en/latest/reference/network-config-format-v2.html">here</a>
+and other examples <a href="https://cloudinit.readthedocs.io/en/latest/reference/examples.html">here</a>.</p>
+<p>There are many things that could go wrong, and the cloud-init instance inside the virtual machine will
+fail silently. A good way to troubleshoot is to enter the virtual machine and use the following command line:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cloud-init schema --config-file user-data
+</span></span></code></pre></div><p>Where user-data is a file containing your (e.g.) user data, that you somehow copied in the virtual machine.
+Read the output carefully because if there is any error in your parameters,
+they will be outlined there.<br>
+Also there are /var/log/cloud-init*.log files inside the guest virtual machine.</p>
+<p>If you were not able to configure your users, you can use a trick such as:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">virt-customize -a system.qcow2 --root-password password:<span class="s1">&#39;redhat&#39;</span> --run-command <span class="s2">&#34;echo PermitRootLogin yes &gt;&gt; /etc/ssh/sshd_config&#34;</span>
+</span></span></code></pre></div><p>In which case virt-customize will start a minimal kernel with your system.qcow2 disk and do
+what requested, in this case modify the root password and enable root login with password via sshd.</p>
+</li>
+<li>
+<p>chmod the install file and fire it up</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chmod <span class="m">0755</span> ./install.sh
+</span></span><span class="line"><span class="cl">install.sh
+</span></span></code></pre></div></li>
+</ol>
+<p>Whenever you screw things up, you can tear everything down and restart in no time:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">virsh destroy mail <span class="o">&amp;&amp;</span> virsh undefine mail <span class="o">&amp;&amp;</span> rm -f system.qcow2
+</span></span><span class="line"><span class="cl">qemu-img create -f qcow2 -b /var/lib/libvirt/images/blogposts/fed42/Fedora-Cloud-Base-Generic-42-1.1.x86_64.qcow2 -F qcow2 system.qcow2
+</span></span></code></pre></div><p>If everything works you can choose a host from which to perform the ssh jump into the virtual machine.
+In my case, this will be the user account of the OS on my laptop, same OS that provides the hypervisor capabilities.</p>
+<p>I like to manage my virtual machines via <strong>~/.ssh/config</strong> like so:</p>
+<pre tabindex="0"><code># blog-jacket machines
+Host bmail
+        Hostname 192.168.126.11
+        User cloud-user
+        Port 22
+        IdentityFile ~/.ssh/id_rsa_blog
+</code></pre><p>Sometimes it will happen to you that you&rsquo;ll recreate a host multiple times,
+and the ssh identity of it will change as it gets regenerated randomly during
+each creation process, and your ssh client will complain.</p>
+<p>The line below will fix things:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ssh-keygen -R 192.168.126.11
+</span></span></code></pre></div><h3 id="appendix--mac-address-meaning">Appendix | MAC Address meaning</h3>
+<p>The first 3 bytes are called OUI (a.k.a. Organizationally Unique Identifiers) and are IEEE assigned to vendors.
+The last 3 bytes are decided by the vendor itself.</p>
+<p>In our case 52:54:00 is the OUI that represents QEMU/KVM, as reserved by IEEE.</p>
+<p>Whenever you see a MAC address starting with 52:54:00, you can say &ldquo;this NIC has been generated by QEMU/libvirt&rdquo;.</p>
+<p>The same goes for VMware, whose assigned OUI is: 00:50:56 as documented in a Broadcom article dated 2025.</p>
+<p>Then there are others, but I am not sure if there is a public IEEE OUI reference or not, one has to rely on the
+vendor&rsquo;s documentation.. I&rsquo;ll stop here, cause I was about to write some fake news in this article on suggestion of ChatGPT.</p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>

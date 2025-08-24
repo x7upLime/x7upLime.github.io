@@ -6,8 +6,15 @@
     <description>Recent content in Sys on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 10 May 2025 17:31:12 +0200</lastBuildDate>
+    <lastBuildDate>Thu, 21 Aug 2025 23:08:51 +0200</lastBuildDate>
     <atom:link href="/tags/sys/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Bare_libvirtd</title>
+      <link>/posts/bare_libvirtd/</link>
+      <pubDate>Thu, 21 Aug 2025 23:08:51 +0200</pubDate>
+      <guid>/posts/bare_libvirtd/</guid>
+      <description>Create virtual machines using just virsh on a linux KVM/QEMU hypervisor.&#xA;Cheat sheet Check info about the qcow2 image that you&amp;rsquo;re looking at:&#xA;qemu-img info &amp;lt;/path/to/file&amp;gt;&#xA;Overlay a base qcow2 image:&#xA;qemu-img create -f qcow2 -b &amp;lt;/path/to/base/image&amp;gt; -F qcow2 &amp;lt;/path/to/new/image&amp;gt;&#xA;Overlay a base qcow2 image with specific virtual size:&#xA;qemu-img create -f qcow2 -b &amp;lt;/path/to/base/image&amp;gt; -F qcow2 &amp;lt;/path/to/new/image&amp;gt; G&#xA;Shows your active libvirt networks:&#xA;virsh net-list&#xA;Duplicate a network&amp;rsquo;s xml definition:</description>
+    </item>
     <item>
       <title>artisanal Object Storage</title>
       <link>/posts/object-storage-on-vps/</link>
