@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Una solució artesanal per mirar 3Cat des de fora del país - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Un mini tutorial en català per configurar un SOCKS5 proxy i mirar
+Bola de Drac en 3Cat des de fora.
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/una_solucio_artesanal_per_mirar_3cat_des_de_fora_del_pais/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Una solució artesanal per mirar 3Cat des de fora del país">
+  <meta property="og:description" content="Un mini tutorial en català per configurar un SOCKS5 proxy i mirar
+Bola de Drac en 3Cat des de fora.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-09-01T15:36:59+03:00">
+    <meta property="article:modified_time" content="2025-09-01T15:36:59+03:00">
+    <meta property="article:tag" content="Sys">
+    <meta property="article:tag" content="Català">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Una solució artesanal per mirar 3Cat des de fora del país">
+  <meta name="twitter:description" content="Un mini tutorial en català per configurar un SOCKS5 proxy i mirar
+Bola de Drac en 3Cat des de fora.">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Una solució artesanal per mirar 3Cat des de fora del país</h1>
+          <div class="meta">Posted on Sep 1, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>Abans de començar, crec que es un deure explicar per què tot aixó.<br>
+M&rsquo;agrada pensar que no existeixen limits al que un pot fer, i per aixó moltes vagades em trobo en situacions ximpletes com aquesta,
+on he d&rsquo;aprendre el català abans de final d&rsquo;any per fer una presentaciò técnica.</p>
+<p>3CAT es una plataforma on posen moltes coses en català que em fan sentir còmode per al meu
+aprenentatge, però és accessible nomès des de certs països, que no inclouen aquell on em trobo ara mateix.<br>
+Generalment, quan tens una web app que limita el contingut a una zona geogràfica, la primera cosa que penses
+és en una VPN. El concepte és situar una màquina en una zona geogràfica, i fer de manera
+que el servei vegi aquesta màquina com si fos la teva (el teu ordinador).</p>
+<p>Hi ha diverses opcions per fer això.</p>
+<h2 id="que-utilitzar">Que utilitzar?</h2>
+<p>He mirat una mica d&rsquo;opcions pel meu cas:
++ Vull fer de manera que 3Cat vegi al meu trànsit com si fos provenient d&rsquo;Espanya
++ Vull que el trànsit del meu ordinador no estigui influït per això
++ Vull utilitzar aquest &lsquo;spoofing&rsquo; nomès per als dominis .cat</p>
+<p>Aquestes sòn les tecnologies que he mirat.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Ease of setup</th>
+<th>for only targeted websites</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VPN</td>
+<td>easy</td>
+<td>could be complicated</td>
+</tr>
+<tr>
+<td>HTTP PROXY</td>
+<td>less than easy</td>
+<td>.pac file &ndash;&gt; easy</td>
+</tr>
+<tr>
+<td>SOCKS5 PROXY</td>
+<td>eazy peazy</td>
+<td>.pac file &ndash;&gt; easy</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Doncs, què cuinem?</p>
+<ul>
+<li>Una VPN tindria sentit, però generalment es tracta d&rsquo;una interfície virtual en el teu sistema operatiu, que es comporta com
+una interfìcie normal, i per això, per dirigir nomès el trànsit que vull jo a la VPN, hauria de fer regles de routing en el sistema</li>
+<li>D&rsquo;altra banda, WireGuard es un servei de VPN molt fàcil de desplegar.</li>
+<li>Un sevei de HTTP proxy com el SquidProxy faria exactament el que necessito, però no és gaire immediat de desplegar,
+i avui moltes web apps utilitzen protocols diferents d&rsquo;HTTP/HTTPS per al multimedia streaming. No ho sè&hellip;</li>
+<li>Un SOCKS5 admet els protocols basats en TCP i UDP, i ès massa versàtil i fàcil de desplegar.</li>
+</ul>
+<p>Mitjançant l&rsquo;SSHD present a la major part de les distribucions basades en Linux, és possible desplegar un servei
+SOCKS5 amb una sola línia d&rsquo;ordres.</p>
+<p>L&rsquo;elecció recau en SOCKS5.</p>
+<h2 id="procediment">Procediment</h2>
+<ol>
+<li>Posar en marxa un nanode a Espanya</li>
+<li>Afegeix-ho al teu fitxer ~/.ssh/config</li>
+<li>Verifica que pots fer ssh a la màquina</li>
+<li>Crea un servei per l&rsquo;endpoint local del SOCKS</li>
+<li>Afegeix un fitxer PAC perquè només funcioni amb dominis .cat al navegador</li>
+<li>Enllaça el navegador</li>
+<li>Verifica la connexió</li>
+</ol>
+<h3 id="posar-en-marxa-un-nanode-a-espanya">Posar en marxa un nanode a Espanya</h3>
+<p>És la part més fàcil i l&rsquo;ùnica que et costa diners.</p>
+<p>He d&rsquo;anar a un servei de hosting barat (en el meu cas Linode) i crear una màquina petita que estigui geolocalitzada a Espanya.</p>
+<p>El sistema operatius és indiferent. Gairebé totes les distribucions de Linux tenen un servidor SSHD.</p>
+<p>L&rsquo;important és que posem una clau SSH per fer l&rsquo;autenticaciò.</p>
+<p><img src="/posts/images/nanode_spain.png" alt="Un nanode a Espanya" title="un nanode a Espanya"></p>
+<p>Fet!</p>
+<h3 id="afegeix-ho-al-teu-fitxer-sshconfig">Afegeix-ho al teu fitxer ~/.ssh/config</h3>
+<p>No cal tenir resolució DNS ni res.
+Tenir la maquina al teu <code>~/.ssh/config</code> ja és prou.</p>
+<p>El hostname és la teva IP que et dona Linode o el teu proveïdor de hosting, i l&rsquo;user és el que
+configures per autenticar-te a la maquina.</p>
+<p><img src="/posts/images/sockspain_sshconfig.png" alt="sockspain" title="sockspain"></p>
+<p>Fet!</p>
+<h3 id="verifica-que-pots-fer-ssh-a-la-màquina">Verifica que pots fer ssh a la màquina</h3>
+<p>L&rsquo;important és que puguis fer SSH a la màquina, basant-te en el fitxer <code>~/.ssh/config</code></p>
+<p>En el meu cas: <code>ssh sockspain</code></p>
+<p>Entrem, fem un parell de configuracions al vol i sortim.</p>
+<p><img src="/posts/images/sockspain_ssh.png" alt="sockspain al vol" title="sockspain al vol"></p>
+<h3 id="crea-un-servei-per-lendpoint-local-del-socks">Crea un servei per l&rsquo;endpoint local del SOCKS</h3>
+<p>Tota la lógica que necessitem està en una línia d&rsquo;ordres del client SSH. Per aixó podem crear un
+fitxer de servei de systemd i posar-lo a <code>~/.config/systemd/user/sockspain.service</code>.</p>
+<p>El fitxer té més o menys aquesta forma:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-systemd.service" data-lang="systemd.service"><span class="line"><span class="cl"><span class="k">[Unit]</span>
+</span></span><span class="line"><span class="cl"><span class="na">Description</span><span class="o">=</span><span class="s">SOCKS5 proxy located in Spain</span>
+</span></span><span class="line"><span class="cl"><span class="na">After</span><span class="o">=</span><span class="s">network.target</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">[Service]</span>
+</span></span><span class="line"><span class="cl"><span class="na">Type</span><span class="o">=</span><span class="s">exec</span>
+</span></span><span class="line"><span class="cl"><span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/bin/ssh -N -D 1080 -o ExitOnForwardFailure=yes user123@sockspain</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">[Install]</span>
+</span></span><span class="line"><span class="cl"><span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</span></span></code></pre></div><p>On la part important es: <code>/usr/bin/ssh -N -D 1080 -o ExitOnForwardFailure=yes user123@sockspain</code> (user123 és un nom d&rsquo;usuari qualsevol).</p>
+<p>Ara només falta llançar les línies d&rsquo;ordres per carregar a la memòria i activar el nou servei <em>sockspain</em>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl --user daemon-reload
+</span></span><span class="line"><span class="cl">systemctl --user start sockspain
+</span></span></code></pre></div><h4 id="per-què-un-servei-local">Per què un servei local?</h4>
+<p>Molt bona pregunta!</p>
+<p>Teòricament, el navegador es pot connectar a un SOCKS proxy remot,
+però això implicaria tenir un SOCKS proxy remot obert, probablement no autenticat,
+i ja no és una bona idea: en el millor dels casos, tothom podria connectar-se al teu SOCKS proxy.</p>
+<p>Una idea millor és tenir un servei local que faci una connexió SSH protegida amb clau privada
+i fer passar tot el trànsit per allà, mantenint-lo xifrat</p>
+<h3 id="afegeix-un-fitxer-pac-perquè-només-funcioni-amb-dominis-cat-al-navegador">Afegeix un fitxer PAC perquè només funcioni amb dominis .cat al navegador</h3>
+<p>Quan un navegador com Firefox et demana un URL per a una configuració automàtica, generalment vol un
+servei web que li proporcioni un fitxer <code>.pac</code>.</p>
+<p>PAC vol dir &ldquo;Proxy Auto-Config&rdquo; i es un altre estàndard que heretem del projecte Netscape dels anys noranta.</p>
+<p>Ès bàsicament un JavaScript que el navegador utilitza cada vagada que carrega un URL i filtra els proxies
+basats en el hostname i l&rsquo;adreça URL.</p>
+<p><img src="/posts/images/firefox_pac_config.png" alt="firefox proxy config" title="firefox proxy config"></p>
+<p>Crearem un altre servei local que exporti el fitxer PAC aquest de la manera més simple i barata possible, a l&rsquo;adreça: <em>http://127.0.0.1:1081</em></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-javascript" data-lang="javascript"><span class="line"><span class="cl"><span class="kd">function</span> <span class="nx">filterByUrl</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">host</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	 <span class="k">if</span> <span class="p">(</span><span class="nx">shExpMatch</span><span class="p">(</span><span class="nx">host</span><span class="p">,</span> <span class="s2">&#34;*.cat&#34;</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">	    <span class="k">return</span>  <span class="s2">&#34;SOCKS5 127.0.0.1:1080&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	 <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	 <span class="k">return</span> <span class="s2">&#34;DIRECT&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Podriem aixecar un servidor HTTP i fer que exporti el fitxer. Però no vull tenir fitxers solts a la màquina.</p>
+<p>Podriem preparar una imatge de contenidor amb un servidor HTTP i el fitxer a dins,
+mantenint només el Containerfile. Però després necessitaríem un podman o alguna cosa similar, i ja és massa hardcore</p>
+<p>I si fos un netcat escoltant en un port?</p>
+<p>Al netcat li podríem passar el text per una canonada (pipe).</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="k">while</span> <span class="nb">true</span> <span class="p">;</span> <span class="k">do</span> <span class="nb">printf</span> <span class="s1">&#39;HTTP/1.1 200 OK\r\nContent-Type: application/x-ns-proxy-autoconfig\r\n\r\nfunction FindProxyForURL(url,host){if(shExpMatch(host,&#34;*.xyz&#34;))return &#34;SOCKS5 127.0.0.1:1080&#34;;return &#34;DIRECT&#34;;}&#39;</span> <span class="p">|</span> nc -l 127.0.0.1 <span class="m">1081</span> <span class="p">;</span> <span class="k">done</span>
+</span></span></code></pre></div><p>Funcionaria?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>andrew@leather-jacket ~<span class="o">]</span>$ curl localhost:1081
+</span></span><span class="line"><span class="cl"><span class="k">function</span> FindProxyForURL<span class="o">(</span>url,host<span class="o">){</span><span class="k">if</span><span class="o">(</span>shExpMatch<span class="o">(</span>host,<span class="s2">&#34;*.cat&#34;</span><span class="o">))</span><span class="k">return</span> <span class="s2">&#34;SOCKS5 127.0.0.1:1080&#34;</span><span class="p">;</span><span class="k">return</span> <span class="s2">&#34;DIRECT&#34;</span><span class="p">;</span><span class="o">}[</span>andrew@leather-jacket ~<span class="o">]</span>$ 
+</span></span></code></pre></div><p>Funciona&hellip; I si el posem en una service unit, funcionaria?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-systemd.service" data-lang="systemd.service"><span class="line"><span class="cl"><span class="k">[Unit]</span>
+</span></span><span class="line"><span class="cl"><span class="na">Description</span><span class="o">=</span><span class="s">PAC static content server</span>
+</span></span><span class="line"><span class="cl"><span class="na">After</span><span class="o">=</span><span class="s">network.target</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">[Service]</span>
+</span></span><span class="line"><span class="cl"><span class="na">Type</span><span class="o">=</span><span class="s">exec</span>
+</span></span><span class="line"><span class="cl"><span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/sh -c &#39;while true; do { printf &#34;HTTP/1.1 200 OK\\r\\nContent-Type: application/x-ns-proxy-autoconfig\\r\\n\\r\\nfunction FindProxyForURL(url,host){if(shExpMatch(host,\\&#34;*.cat\\&#34;))return \\&#34;SOCKS5 127.0.0.1:1080\\&#34;;return \\&#34;DIRECT\\&#34;;}&#34;; } | nc -l 127.0.0.1 1081; done&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">[Install]</span>
+</span></span><span class="line"><span class="cl"><span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>andrew@leather-jacket ~<span class="o">]</span>$ curl localhost:1081
+</span></span><span class="line"><span class="cl"><span class="k">function</span> FindProxyForURL<span class="o">(</span>url,host<span class="o">){</span><span class="k">if</span><span class="o">(</span>shExpMatch<span class="o">(</span>host,<span class="s2">&#34;*.cat&#34;</span><span class="o">))</span><span class="k">return</span> <span class="s2">&#34;SOCKS5 127.0.0.1:1080&#34;</span><span class="p">;</span><span class="k">return</span> <span class="s2">&#34;DIRECT&#34;</span><span class="p">;</span><span class="o">}[</span>andrew@leather-jacket ~<span class="o">]</span>$ 
+</span></span></code></pre></div><p>Funciona una altra vegada.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl --user daemon-reload
+</span></span><span class="line"><span class="cl">systemctl --user start allcatpac
+</span></span></code></pre></div><h3 id="enllaça-el-navegador">Enllaça el navegador</h3>
+<p>La configuració és la mateixa que abans, ara només tenim el servei de veritat.</p>
+<p>Per verificar que la teva IP sigui realment la de la màquina remota,
+pots utilitzar qualsevol servei del tipus whatsmyip.<br>
+Només has de buscar a Google &ldquo;what is my ip&rdquo; i clicar en un dels molts resultats.</p>
+<p>Jugant una mica amb el servei allcatpac, pots definir el proxy per el domini (e.g.) .io i provar el canvi d’IP.
+a (e.g.) <a href="https://whatismyipaddress.com/">https://whatismyipaddress.com/</a> i <a href="https://ipinfo.io/what-is-my-ip">https://ipinfo.io/what-is-my-ip</a>, tenint en compte que cal reiniciar
+el navegador i el servei <em>allcatpac</em>.</p>
+<h3 id="ja-està">Ja està</h3>
+<p><img src="/posts/images/bola_de_drac.png" alt="Bola de Drac" title="bola de drac"></p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+              <li><a href="/tags/catal%C3%A0">català</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>
