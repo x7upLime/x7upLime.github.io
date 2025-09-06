@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Mail_install En - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Simplest setup for a mail server that accepts mails for its domain.
+I&#39;m using Postfix (MTA) and Dovecot (MDA).
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/mail_install-en/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Mail_install En">
+  <meta property="og:description" content="Simplest setup for a mail server that accepts mails for its domain.
+I&#39;m using Postfix (MTA) and Dovecot (MDA).">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-09-06T21:40:45+03:00">
+    <meta property="article:modified_time" content="2025-09-06T21:40:45+03:00">
+    <meta property="article:tag" content="Sys">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Mail_install En">
+  <meta name="twitter:description" content="Simplest setup for a mail server that accepts mails for its domain.
+I&#39;m using Postfix (MTA) and Dovecot (MDA).">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Mail_install En</h1>
+          <div class="meta">Posted on Sep 6, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>Say you have a private NATted network where you&rsquo;re running a couple of services,
+maybe those services occasionally have the need to notify users and administrators (you could be both)
+about stuff that is happening (observability stack),
+stuff that needs your intervention (still observability and remediation stuff, automations, &hellip;),
+or whatever other reason that you may think of&hellip;</p>
+<p>In this article we&rsquo;re spinning up a dedicated machine that will act as the mail host
+for the blog.jacket.lime domain, accepting emails from hosts in this domain and delivering to mailboxes
+that are also accessible via the IMAP protocol.
+To accomplish this, we&rsquo;ll deploy and configure the Postfix/Dovecot combination.</p>
+<p>There is a brilliant introduction about all the moving pieces that bring the &ldquo;mail infrastructure&rdquo; to life,
+from the mutt project, this document talks about <a href="https://gitlab.com/muttmua/mutt/-/wikis/MailConcept">&ldquo;the notorious MxA bunch&rdquo;</a>.
+Now the first time I heard about mutt it tought it was so cool, cause kernel people used it as the best email client.
+It is also a fact that the first time I tried to read the upper mentioned document and setup mutt, I did it, but not
+understand a bit of what I was doing.</p>
+<p>In our simple scenario there&rsquo;s gonna be a <strong>Mail Transfer Agent</strong> (or MTA) implemented by Postfix,
+and a <strong>Mail Delivery Agent</strong> (or MDA) implemented by Dovecot. The MUA or Mail User Agent, or basically your
+mail client can be whatever, I&rsquo;ll probably stick to evolution on my laptop to get desktop notifications.</p>
+<h2 id="assumptions">Assumptions</h2>
+<ul>
+<li>A dns server managed by a freeipa installation at 192.168.126.10</li>
+<li>A mail.blog.jacket.lime machine at 192.168.126.11</li>
+<li>cloud-user on the mail machine</li>
+<li>GNOME DE with Evolution as an email client</li>
+<li>blog.jacket.lime is the domain that we are controlling</li>
+</ul>
+<h2 id="setup-the-mx-record">Setup the MX record</h2>
+<p>Take note of the mail machine&rsquo;s ip address, and setup the A record for it,
+together with the MX record, that advertises it as the mail server for that domain.</p>
+<p>The method you use could be anything from a web app such as the one of FreeIPA, or via the zone
+file with a text editor for a standalon named daemon, or anything in between.</p>
+<p>First you setup the A record that points an host to an IPv4 address, and that&rsquo;s easy.<br>
+The next step is to create an MX record for the whole domain, that points to the host previously defined in the A record.</p>
+<p><img src="/posts/images/mx_record_blogJacket.png" alt="dns MX record for the whole domain" title="dns MX record for the whole domain"></p>
+<p>To verify that the MTA for your domain is the mail host, and that the mail hostname resolves to your ip,
+you can make a couple of dig requests to the specified dns server:<br>
+<strong>dig @192.168.126.10 MX blog.jacket.lime +short</strong><br>
+<strong>dig @192.168.126.10 A mail.blog.jacket.lime +short</strong></p>
+<h2 id="components-installation">Components installation</h2>
+<p><strong>dnf install postfix dovecot s-nail</strong></p>
+<p>the <em>s-nail</em> package contains the /bin/mail utilty that we&rsquo;re gonna use to test the correct transmission and delivery.</p>
+<p>And that&rsquo;s it&hellip;</p>
+<h2 id="postifx-setup">Postifx setup</h2>
+<p>Postfix is gonna be our MTA, will deliver emails for the blog.jacket.lime domain and submit emails to
+the Dovecot server via the LMTP protocol. Since both services are local, they don&rsquo;t have to speak LMTP over
+TCP/IP, but postfix can connect to a local unix socket, known as &ldquo;the lmtp socket&rdquo;.</p>
+<p>First file that we&rsquo;re looking at is <strong>/etc/postfix/main.cf</strong></p>
+<p><strong>WARN</strong>: whenever you see an entry, commented or not, that you wanna set, change, whatever, don&rsquo;t do it!<br>
+Instead make a copy of the line and paste it just below, and edit that. You will thank me.</p>
+<p>Below is a collection of settings that you should research in your main.cf file and change accordingly:</p>
+<pre tabindex="0"><code># /etc/postfix/main.cf
+
+myhostname = mail.blog.jacket.lime
+mydomain = blog.jacket.lime
+
+inet_interfaces = $myhostname
+inet_protocols = ipv4
+
+# Here the $mydomain at the end is important
+# it is this that makes this postfix the &#34;final destionation&#34; for the mails in this domain
+mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+
+# These are voluntarily left blank, as we are never relaying
+relay_domains =
+relayhost =
+
+# We&#39;re accepting only from localhost and 192.168.126.0/24
+mynetworks = 192.168.126.0/24, 127.0.0.0/8
+
+# Remember that if using lmtp home_mailbox and mail_spool_directory
+# should be left unset on the postfix side as Dovecot will take care of that
+</code></pre><p>To check the sanity of your postfix config file:<br>
+<strong>postconf -n</strong></p>
+<p>If it exits successfully <code>echo $?</code>, it means the config is at least syntactically correct.</p>
+<h2 id="dovecot-setup">Dovecot setup</h2>
+<p>On the Dovecot side we&rsquo;re setting up which users have a mailbox, where
+that mailbox is and so on&hellip;</p>
+<p>We&rsquo;re setting up something very simple:</p>
+<ul>
+<li>users are system users - the ones in /etc/passwd</li>
+<li>authentication is done via system password - the one in /etc/shadow</li>
+<li>the maildir location is ~/Maildir in each user&rsquo;s home directory</li>
+</ul>
+<p>The defaults in dovecot are already good enough.</p>
+<p>Here we&rsquo;re removing the submission and pop protocol,
+leaving only <strong>imap</strong> which enables us to access our mails from a mail client,
+and <strong>lmtp</strong> which enables postfix to transfer mails to dovecot to handle the delivery to the mailboxes.</p>
+<pre tabindex="0"><code># /etc/dovecot/dovecot.conf
+
+protocols = imap lmtp
+</code></pre><p>Sets the location and format of the mailboxes,
+to a maildir in the <em>~/Maildir</em> directory of each user&rsquo;s home directory.</p>
+<pre tabindex="0"><code># /etc/dovecot/conf.d/10-mail.conf
+
+mail_location = maildir:~/Maildir
+</code></pre><p>This is needed in order for Dovecot to correctly authenticate system users.</p>
+<pre tabindex="0"><code># /etc/dovecot/conf.d/10-auth.conf
+
+auth_username_format = %n
+</code></pre><p>You can check if Dovecot recognizes a user with the following:<br>
+<strong>doveadm user cloud-user</strong><br>
+If you&rsquo;re getting any unrecognized user or no such user error, this is how to troubleshoot it.</p>
+<h2 id="control-services">Control services</h2>
+<p>Both Postfix and Dovecot support the configuration reload feature.</p>
+<p>Whenever you change something, in order to see it in action:<br>
+<strong>sudo systemctl reload postfix</strong><br>
+<strong>sudo systemctl reload dovecot</strong></p>
+<h2 id="mua-setup---evolution-on-gnome">MUA setup - Evolution on GNOME</h2>
+<p><strong>Edit &gt; Accounts</strong><br>
+<strong>Add &gt; Mail Account</strong></p>
+<p>For the identity form, you only need the email address of the cloud-user.
+<img src="/posts/images/evol_config__identity.png" alt="set identity in evolution" title="set identity in evolution"></p>
+<p>The &ldquo;Receiving Emails&rdquo; form wants to know the dovecot host:port couple: in our case mail.blog.jacket.lime:993<br>
+The username is cloud-user, as per /etc/passwd.<br>
+For the authentication, you can help yourself with the button &ldquo;Check for supported Types&rdquo;, and in our case there should be just &ldquo;Password&rdquo;.
+<img src="/posts/images/evol_config__retrieval.png" alt="set email retrieval in evolution" title="set email retrieval in evolution"></p>
+<p>In the &ldquo;Receiving Options&rdquo; I prefer setting a reasonable amount of minutes after which
+to have Evolution check for new emails, which is literally the first option of the bunch.</p>
+<p>The &ldquo;Sending Email&rdquo; form just needs the hostname for the Postfix service, in our case mail.blog.jacket.lime:465<br>
+<img src="/posts/images/evol_config__transp.png" alt="set email transport in evolution" title="set email transport in evolution"></p>
+<p>Then some other trivial options and that should be it.</p>
+<p>At any point Evolution will prompt you about the certificates exposed by the Postfix and Dovecot services,
+which have been left self signed, and you can then choose to trust them temporarily.</p>
+<p>To test everything you could:<br>
+<strong>echo &ldquo;This is a test mail&rdquo; | mail -s &ldquo;testmail&rdquo; <a href="mailto:cloud-user@blog.jacket.lime">cloud-user@blog.jacket.lime</a></strong></p>
+<p>If it works you&rsquo;ll see it in Evolution as a popup on your gnome.<br>
+If you don&rsquo;t see it:<br>
+<strong>sudo journalctl -e</strong></p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>

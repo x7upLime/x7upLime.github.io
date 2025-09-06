@@ -6,20 +6,20 @@
     <description>Recent content in Tags on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 01 Sep 2025 15:36:59 +0300</lastBuildDate>
+    <lastBuildDate>Sat, 06 Sep 2025 21:40:45 +0300</lastBuildDate>
     <atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Català</title>
-      <link>/tags/catal%C3%A0/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>/tags/catal%C3%A0/</guid>
-      <description></description>
-    </item>
     <item>
       <title>Sys</title>
       <link>/tags/sys/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       <guid>/tags/sys/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Català</title>
+      <link>/tags/catal%C3%A0/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>/tags/catal%C3%A0/</guid>
       <description></description>
     </item>
     <item>

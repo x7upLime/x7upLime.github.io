@@ -6,8 +6,15 @@
     <description>Recent content on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 01 Sep 2025 15:36:59 +0300</lastBuildDate>
+    <lastBuildDate>Sat, 06 Sep 2025 21:40:45 +0300</lastBuildDate>
     <atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Mail_install En</title>
+      <link>/posts/mail_install-en/</link>
+      <pubDate>Sat, 06 Sep 2025 21:40:45 +0300</pubDate>
+      <guid>/posts/mail_install-en/</guid>
+      <description>Say you have a private NATted network where you&amp;rsquo;re running a couple of services, maybe those services occasionally have the need to notify users and administrators (you could be both) about stuff that is happening (observability stack), stuff that needs your intervention (still observability and remediation stuff, automations, &amp;hellip;), or whatever other reason that you may think of&amp;hellip;&#xA;In this article we&amp;rsquo;re spinning up a dedicated machine that will act as the mail host for the blog.</description>
+    </item>
     <item>
       <title>Una solució artesanal per mirar 3Cat des de fora del país</title>
       <link>/posts/una_solucio_artesanal_per_mirar_3cat_des_de_fora_del_pais/</link>
