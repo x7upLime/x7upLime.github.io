@@ -86,6 +86,8 @@ mail client can be whatever, I&rsquo;ll probably stick to evolution on my laptop
 <li>GNOME DE with Evolution as an email client</li>
 <li>blog.jacket.lime is the domain that we are controlling</li>
 </ul>
+<p>Please note also that I assume that <strong>this setup is used only inside a closed lab environment</strong>,
+as the cofiguration is not secure enough for any other kind of environment.</p>
 <h2 id="setup-the-mx-record">Setup the MX record</h2>
 <p>Take note of the mail machine&rsquo;s ip address, and setup the A record for it,
 together with the MX record, that advertises it as the mail server for that domain.</p>
@@ -178,7 +180,15 @@ For the authentication, you can help yourself with the button &ldquo;Check for s
 <img src="/posts/images/evol_config__retrieval.png" alt="set email retrieval in evolution" title="set email retrieval in evolution"></p>
 <p>In the &ldquo;Receiving Options&rdquo; I prefer setting a reasonable amount of minutes after which
 to have Evolution check for new emails, which is literally the first option of the bunch.</p>
-<p>The &ldquo;Sending Email&rdquo; form just needs the hostname for the Postfix service, in our case mail.blog.jacket.lime:465<br>
+<p>The &ldquo;Sending Email&rdquo; form wants to know the hostname/port for the Postfix service,
+in our case it will be mail.blog.jacket.lime:25 without any encryption.<br>
+It is worth mentioning that port 25 is the port for MTA-to-MTA transmission, and not our MUA-to-MTA, which
+should be one of 587 or 465, that would require extra configuration and hence it was avoided.<br>
+Just remember it is not a best practice.<br>
+Another thing worth mentioning, is that the mail submission works automatically and without authentication,
+just because the host where the Evolution client is, is part of the network listed in Postfix&rsquo;s <strong>mynetworks</strong>
+parameter, that enables clients to <strong>submit or relay</strong> mails without authentication.
+Everything outside <em>mynetworks</em> would need SASL authentication.
 <img src="/posts/images/evol_config__transp.png" alt="set email transport in evolution" title="set email transport in evolution"></p>
 <p>Then some other trivial options and that should be it.</p>
 <p>At any point Evolution will prompt you about the certificates exposed by the Postfix and Dovecot services,
