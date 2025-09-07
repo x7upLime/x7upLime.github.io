@@ -6,8 +6,15 @@
     <description>Recent content in Posts on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 06 Sep 2025 21:40:45 +0300</lastBuildDate>
+    <lastBuildDate>Sun, 07 Sep 2025 01:32:58 +0300</lastBuildDate>
     <atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Prometheus_install En</title>
+      <link>/posts/prometheus_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 01:32:58 +0300</pubDate>
+      <guid>/posts/prometheus_install-en/</guid>
+      <description>Say you want to keep under observation things like a platform, operating system, how many times do you go to the bathroom during office hours, &amp;hellip; for all those needs and many more, there are specific types of data that are better suited to represent, store and process this kind of information.&#xA;Prometheus defines counters, gauges and histograms as native metric types, that respectively represent values that increase, that can go up/down, and samples of observations.</description>
+    </item>
     <item>
       <title>Mail_install En</title>
       <link>/posts/mail_install-en/</link>
