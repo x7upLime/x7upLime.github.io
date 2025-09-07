@@ -6,8 +6,22 @@
     <description>Recent content in Posts on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 07 Sep 2025 01:32:58 +0300</lastBuildDate>
+    <lastBuildDate>Sun, 07 Sep 2025 22:19:34 +0300</lastBuildDate>
     <atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Grafana_install En</title>
+      <link>/posts/grafana_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 22:19:34 +0300</pubDate>
+      <guid>/posts/grafana_install-en/</guid>
+      <description>Grafana is at the top of many stacks of services that together generate observability platforms and such, just because it has a very general use: to display stuff.&#xA;For this reason and because it does what it does very well, you&amp;rsquo;ll find Grafana stuff around also on top of standalone applications, as screenshots of graphs in articles online or in any other contexts where you have some data that you need to display.</description>
+    </item>
+    <item>
+      <title>Loki_install En</title>
+      <link>/posts/loki_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 16:41:28 +0300</pubDate>
+      <guid>/posts/loki_install-en/</guid>
+      <description>The more sources you have generating logs that you need to collect, visualize, and manage and so on, the more it becomes a necessity to have a central location where all logs converge, so that then it becomes much easier to perform operations from visualization to backup.&#xA;If you don&amp;rsquo;t see the value of doing so in your home lab, you can do that just for the sake of learning, because it is a real-world scenario need.</description>
+    </item>
     <item>
       <title>Prometheus_install En</title>
       <link>/posts/prometheus_install-en/</link>

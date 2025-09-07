@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Loki_install En - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Simplest setup for a Loki service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/loki_install-en/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Loki_install En">
+  <meta property="og:description" content="Simplest setup for a Loki service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-09-07T16:41:28+03:00">
+    <meta property="article:modified_time" content="2025-09-07T16:41:28+03:00">
+    <meta property="article:tag" content="Sys">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Loki_install En">
+  <meta name="twitter:description" content="Simplest setup for a Loki service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Loki_install En</h1>
+          <div class="meta">Posted on Sep 7, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>The more sources you have generating logs that you need to collect,
+visualize, and manage and so on, the more it becomes a necessity to have a central
+location where all logs converge, so that then it becomes much easier
+to perform operations from visualization to backup.</p>
+<p>If you don&rsquo;t see the value of doing so in your home lab, you can do that
+just for the sake of learning, because it is a real-world scenario need.</p>
+<p>I&rsquo;m using Loki because, as the project itself states, it is much cheaper than other alternatives.
+And from my direct experience, it is quite so.</p>
+<p>Loki by itself is not a complete log management solution, but you can build one based on it.<br>
+At its core, Loki is only responsible for ingesting, storing and processing queries on logs.
+Then you will need other components such as Grafana to be able to (e.g.) add visualization to your log aggregation platform.</p>
+<h2 id="assumptions">Assumptions</h2>
+<ul>
+<li>A <em>containers.blog.jacket.lime</em> machine at 192.168.126.12</li>
+<li>there is no local firewall active on the <em>containers</em> machine</li>
+<li>cloud-user on the <em>containers</em> machine</li>
+</ul>
+<p>Please note also that I assume that <strong>this setup is used only inside a closed lab environment</strong>,
+as the cofiguration could be polished more to make the services more maintainable and secure.</p>
+<h2 id="ingredients">Ingredients</h2>
+<p><strong>dnf install podman</strong></p>
+<p>Also make sure that you have the one of the directories in the <strong>podman rootless unit search path</strong> in place:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ mkdir -pv ~/.config/containers/systemd/
+</span></span></code></pre></div><p>Whenever there&rsquo;s something that you don&rsquo;t know or you want to learn more about,
+your first point of reference should be: <code>man 5 podman-systemd.unit</code></p>
+<p>Also it would be useful to add a <strong>~/.config/containers/systemd/blogposts.network</strong> file
+with the following content:</p>
+<pre tabindex="0"><code>[Network]
+NetworkName=blogposts-network
+</code></pre><p>This way, after a <code>systemctl --user daemon-reload</code>, you&rsquo;ll have a blogposts network that you can
+share between your quadlets, so that they can see each other and resolve each other&rsquo;s names.<br>
+You can see the network in the output of <code>podman network list</code>.</p>
+<h2 id="tutorial">Tutorial</h2>
+<p>We&rsquo;re gonna deploy a Loki service inside a podman container, that
+is defined as a podman-systemd.unit and managed as a user service unit.</p>
+<h3 id="-install-a-loki-podman-systemdunit">### Install a Loki podman-systemd.unit</h3>
+<p>You&rsquo;ll need to decide which <strong>version of the software</strong> you want. If you don&rsquo;t know use the latest available version
+by sticking to a specific (biggest) version tag, avoiding the tag latest:<br>
+If latest points to 3.5.4, then your command line is:<br>
+<strong>podman pull docker.io/grafana/loki:3.5.4</strong></p>
+<p>Also if you do this by hand, then podman-systemd will already have the image in the local registry,
+so you save some time during the first run of the service.</p>
+<pre tabindex="0"><code># ~/.config/containers/systemd/blogposts__loki.container
+
+[Unit]
+Description=blog.jacket.lime&#39;s Loki quadlet
+
+[Container]
+ContainerName=blogposts__loki
+
+Image=docker.io/grafana/loki:3.5.4
+
+PublishPort=0.0.0.0:3100:3100
+
+Network=blogposts.network
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target default.target
+</code></pre><p>Now to inform systemd that we&rsquo;ve added a user unit and start it:<br>
+<strong>systemctl &ndash;user daemon-reload</strong>
+<strong>systemctl &ndash;user enable &ndash;now blogposts__loki</strong></p>
+<h3 id="check-if-it-works">Check if it works</h3>
+<p>The following is to ensure that you have something listening on port 3100:<br>
+<strong>nc- vz -w 1 localhost 3100</strong></p>
+<p>This curl sends a log message to loki</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">curl -X POST <span class="s2">&#34;http://localhost:3100/loki/api/v1/push&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -H <span class="s2">&#34;Content-Type: application/json&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -d <span class="s1">&#39;{
+</span></span></span><span class="line"><span class="cl"><span class="s1">    &#34;streams&#34;: [{
+</span></span></span><span class="line"><span class="cl"><span class="s1">      &#34;stream&#34;: { &#34;job&#34;: &#34;demo&#34; },
+</span></span></span><span class="line"><span class="cl"><span class="s1">      &#34;values&#34;: [[ &#34;&#39;</span><span class="k">$(</span>date +%s%N<span class="k">)</span><span class="s1">&#39;&#34;, &#34;hello loki&#34; ]]
+</span></span></span><span class="line"><span class="cl"><span class="s1">    }]
+</span></span></span><span class="line"><span class="cl"><span class="s1">  }&#39;</span>
+</span></span></code></pre></div><p>This curl tries to get back the &ldquo;demo&rdquo; job, if there is one in loki, the grep will highlight it to you.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -G --data-urlencode <span class="s1">&#39;query={job=&#34;demo&#34;}&#39;</span>   <span class="s2">&#34;http://localhost:3100/loki/api/v1/query_range&#34;</span> <span class="p">|</span> grep -i <span class="s2">&#34;hello loki&#34;</span>
+</span></span></code></pre></div><h3 id="what-to-do-from-here">What to do from here</h3>
+<p>As you already saw above, there is a specif data structure that loki expects from its log messages,
+and not all the applications log the loki format.
+It may be required to put something in the middle. Something like a <strong>Grafana Alloy</strong>.</p>
+<p>The same way, Loki is quite useless as a log analyzer, without something to visualize stuff.
+This role is played by Grafana.</p>
+<p>Both Alloy and Grafana are separate projects with broader use cases.
+It makes sense to keep this post short and cover each of those in separate posts.</p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>
