@@ -6,8 +6,15 @@
     <description>Recent content in Posts on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 08 Sep 2025 09:26:09 +0300</lastBuildDate>
+    <lastBuildDate>Mon, 08 Sep 2025 18:50:04 +0300</lastBuildDate>
     <atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Gitea_install En</title>
+      <link>/posts/gitea_install-en/</link>
+      <pubDate>Mon, 08 Sep 2025 18:50:04 +0300</pubDate>
+      <guid>/posts/gitea_install-en/</guid>
+      <description>Every infrastructure has a brain.&#xA;Sometimes it&amp;rsquo;s an inventory platform that somebody wrote many years ago, if you&amp;rsquo;re unlucky it&amp;rsquo;s one of those old CMDBs that works awfully, if you&amp;rsquo;re lucky, today a good candidate is a git server.&#xA;The git server is one of the most versatile pieces of software that you can find around. It has a small and simple core idea, but it does it so well and is so elegant, that it can be used as a lot of things.</description>
+    </item>
     <item>
       <title>Alloy_install En</title>
       <link>/posts/alloy_install-en/</link>
