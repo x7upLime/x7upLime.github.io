@@ -6,8 +6,15 @@
     <description>Recent content in Posts on andrewdomain Blog</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 07 Sep 2025 22:19:34 +0300</lastBuildDate>
+    <lastBuildDate>Mon, 08 Sep 2025 09:26:09 +0300</lastBuildDate>
     <atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Alloy_install En</title>
+      <link>/posts/alloy_install-en/</link>
+      <pubDate>Mon, 08 Sep 2025 09:26:09 +0300</pubDate>
+      <guid>/posts/alloy_install-en/</guid>
+      <description>There are cases in which you want to hook an application instance, platform, hardware or whatever, into your collector of whatever.&#xA;It may happen that your collector of whatever needs clients to speak a certain protocol, that they may not know. So in that case the only way is to put something in between to translate.&#xA;Grafana Alloy is a distribution of something called OpenTelemetry Collector, which in turn enables you to create pipelines that can ingest, transform and forward metrics, logs, traces, &amp;hellip; into stuff like our Loki or our Prometheus that we set up in previous articles.</description>
+    </item>
     <item>
       <title>Grafana_install En</title>
       <link>/posts/grafana_install-en/</link>

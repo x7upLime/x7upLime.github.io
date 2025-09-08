@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html><head lang="en">
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Alloy_install En - andrewdomain Blog</title><link rel="icon" type="image/png" href=/favicon-270.png /><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="Simplest setup for a Grafana Alloy service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)
+" />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="/posts/alloy_install-en/">
+  <meta property="og:site_name" content="andrewdomain Blog">
+  <meta property="og:title" content="Alloy_install En">
+  <meta property="og:description" content="Simplest setup for a Grafana Alloy service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2025-09-08T09:26:09+03:00">
+    <meta property="article:modified_time" content="2025-09-08T09:26:09+03:00">
+    <meta property="article:tag" content="Sys">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Alloy_install En">
+  <meta name="twitter:description" content="Simplest setup for a Grafana Alloy service,
+deployed as a podman-systemd.unit (a.k.a. quadlet)">
+
+        <link href="/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="/css/main.6a0f23ea50fd34b46fee262a5a68e17d458c51a2bc99ba1ba018065de6b180c3.css" />
+		
+		
+		<link rel="stylesheet" type="text/css" href="/css/spicedEmacs.3f2988fd34adf91b9cf72a3ac78c3d379e2055ce85691e340b528741ce1d666b.css">
+		
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="/">andrewdomain Blog</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/tags">Tags</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+  <article>
+    <div class="post-container">
+      
+      <div class="post-content">
+        <div class="title">
+          <h1 class="title">Alloy_install En</h1>
+          <div class="meta">Posted on Sep 8, 2025</div>
+        </div>
+        
+        <section class="body">
+          <p>There are cases in which you want to hook an application instance, platform,
+hardware or whatever, into your collector of whatever.</p>
+<p>It may happen that your collector of whatever needs clients to speak a certain protocol,
+that they may not know. So in that case the only way is to put something in between to translate.</p>
+<p>Grafana Alloy is a distribution of something called OpenTelemetry Collector, which in turn
+enables you to create pipelines that can ingest, transform and forward metrics, logs, traces, &hellip; into
+stuff like our Loki or our Prometheus that we set up in previous articles.</p>
+<h2 id="tutorial">Tutorial</h2>
+<p>We&rsquo;re gonna deploy an Alloy service inside a podman container, that
+is defined as a podman-systemd.unit and managed as a user service unit.</p>
+<h3 id="assumptions">Assumptions</h3>
+<ul>
+<li>A <em>containers.blog.jacket.lime</em> machine at 192.168.126.12</li>
+<li>there is no local firewall active on the <em>containers</em> machine</li>
+<li>cloud-user on the <em>containers</em> machine</li>
+<li>there is a working Loki instance on the same host</li>
+<li>the Loki instance is already hooked to Grafana</li>
+</ul>
+<p>Please note also that I assume that <strong>this setup is used only inside a closed lab environment</strong>,
+as the cofiguration could be polished more to make the services more maintainable and secure.</p>
+<h3 id="ingredients">Ingredients</h3>
+<p><strong>dnf install podman</strong></p>
+<p>Also make sure that you have the one of the directories in the <strong>podman rootless unit search path</strong> in place:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ mkdir -pv ~/.config/containers/systemd/
+</span></span></code></pre></div><p>Whenever there&rsquo;s something that you don&rsquo;t know or you want to learn more about,
+your first point of reference should be: <code>man 5 podman-systemd.unit</code></p>
+<p>Also it would be useful to add a <strong>~/.config/containers/systemd/blogposts.network</strong> file
+with the following content:</p>
+<pre tabindex="0"><code>[Network]
+NetworkName=blogposts-network
+</code></pre><p>This way, after a <code>systemctl --user daemon-reload</code>, you&rsquo;ll have a blogposts network that you can
+share between your quadlets, so that they can see each other and resolve each other&rsquo;s names.<br>
+You can see the network in the output of <code>podman network list</code>.</p>
+<h3 id="install-an-alloy-podman-systemdunit">Install an Alloy podman-systemd.unit</h3>
+<p>You&rsquo;ll need to decide which <strong>version of the software</strong> you want. If you don&rsquo;t know use the latest available version
+by sticking to a specific (biggest) version tag, avoiding the tag latest:<br>
+If latest points to v1.10.2, then your command line is:<br>
+<strong>podman pull docker.io/grafana/alloy:v1.10.2</strong></p>
+<p>Also if you do this by hand, then podman-systemd will already have the image in the local registry,
+so you save some time during the first run of the service.</p>
+<p>Alloy also needs a configuration file, in order to create the pipeline that will receive
+your logs over http, transform them by giving them labels, and send them to Loki.</p>
+<p>Once again I sacrificed tidiness by putting
+the file in the same directory as the rootles podman/systemd units, for the sake of simplicity</p>
+<p>Mind that <strong>loki.source.api</strong>, <strong>loki.process</strong> and <strong>loki.write</strong> are <em>&ldquo;components&rdquo;</em> in Grafana Alloy,
+that you are borrowing and configuring with those blocks that you are defining between curly braces
+(similar to how Terraform does things 🤮🤢)</p>
+<pre tabindex="0"><code># ~/.config/containers/systemd/etc-alloy/alloy.yml
+
+logging {
+  level = &#34;info&#34;
+  format = &#34;logfmt&#34;
+}
+
+loki.write &#34;to_loki&#34; {
+  endpoint {
+    url = &#34;http://blogposts__loki:3100/loki/api/v1/push&#34;
+  }
+}
+
+loki.process &#34;labels&#34; {
+  stage.json {
+    expressions = {&#34;extracted_service&#34; = &#34;app&#34;}
+  }
+
+  stage.labels {
+    values = {
+      &#34;job&#34; = &#34;extracted_service&#34;,
+      &#34;service_name&#34; = &#34;extracted_service&#34;,
+    }
+  }
+  
+  forward_to = [loki.write.to_loki.receiver]
+}
+
+loki.source.api &#34;http_logs&#34; {
+  http {
+    listen_address = &#34;0.0.0.0&#34;
+    listen_port = 12346
+  }
+
+  forward_to = [loki.process.labels.receiver]
+}
+</code></pre><p>It basically works like this:</p>
+<ul>
+<li>By default Alloy exposes port 12345 for its own metrics and health and other stuff.</li>
+<li>You can define an arbitrary number of endpoint to bind to, just like we do with <strong>loki.source.api &ldquo;http_logs&rdquo;</strong></li>
+<li>You can pipe the input of those to processors such as <strong>loki.process &ldquo;labels&rdquo;</strong> that in turn gives your data labels and stuff.</li>
+<li>You can pipe the result to a service such as (in this case for logs) Loki, via the <strong>loki.write &ldquo;to_loki&rdquo;</strong> component</li>
+</ul>
+<p>The end podman-systemd.unit file looks like the following:</p>
+<pre tabindex="0"><code># ~/.config/containers/systemd/blogposts__alloy.container
+
+[Unit]
+Description=blog.jacket.lime&#39;s Alloy quadlet
+
+[Container]
+ContainerName=blogposts__alloy
+
+Image=docker.io/grafana/alloy:v1.10.2
+
+Volume=./etc-alloy/alloy.yml:/etc/alloy/config.alloy:ro,z
+
+PublishPort=0.0.0.0:12345:12345
+PublishPort=0.0.0.0:12346:12346
+
+Network=blogposts.network
+
+Exec=run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target default.target
+</code></pre><p>Here we&rsquo;ve mounted the config file for Alloy in a path inside the container, that we are
+then referencing with in the <em>Exec</em> directive, that defines the command line for the app inside the container.</p>
+<p>We&rsquo;re putting Alloy inside the blogposts network,
+as we need other containerized service on the same host to see it.</p>
+<p>We&rsquo;re exposing port 12345 as it shows metrics and the Alloy web app,
+and port 12346 as it is the endpoint that receives logs, that we can then test with curls.</p>
+<p>&hellip;</p>
+<p>Now after a bunch of calls to systemctl:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">systemctl --user daemon-reload
+</span></span><span class="line"><span class="cl">systemctl --user <span class="nb">enable</span> --now blogposts__alloy
+</span></span></code></pre></div><p>We should have an Alloy service ready on http://localhost:12345
+and ready to ingest logs on http://localhost:12346:<br>
+<strong>curl -v http://localhost:12346/ready &amp;&amp; echo</strong></p>
+<h3 id="verify-log-ingestion">Verify log ingestion</h3>
+<p>Testing if we&rsquo;re able to send logs to alloy is easy: instead of the classical <em>logger</em> cli,
+we&rsquo;re sending a curl to the <strong>/loki/api/v1/raw</strong> endpoint with some arbitrary data, like so:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">curl -X POST localhost:12346/loki/api/v1/raw -d <span class="s1">&#39;{&#34;app&#34;: &#34;myapp&#34;, &#34;level&#34;: &#34;info&#34;, &#34;message&#34;: &#34;hello from curl&#34;}&#39;</span>
+</span></span><span class="line"><span class="cl">curl -X POST localhost:12346/loki/api/v1/raw -d <span class="s1">&#39;{&#34;app&#34;: &#34;myapp&#34;, &#34;level&#34;: &#34;info&#34;, &#34;warn&#34;: &#34;something is happening&#34;}&#39;</span>
+</span></span><span class="line"><span class="cl">curl -X POST localhost:12346/loki/api/v1/raw -d <span class="s1">&#39;{&#34;app&#34;: &#34;myapp&#34;, &#34;level&#34;: &#34;info&#34;, &#34;crit&#34;: &#34;something bad has happened&#34;}&#39;</span>
+</span></span></code></pre></div><p>The response should be silent. Append a -v to curl should show a status code of 204 (No content).</p>
+<p>Assuming that you already made the connection from Loki to Grafana, as described in an earlier post,
+you have just sent raw logs to Alloy, that in turn has sent them to Loki, that in turn is queried from Grafana.
+So at this point you should be able to see it in the grafana web app at <strong>Home &gt; Drilldown &gt; Logs</strong></p>
+<p><img src="/posts/images/alloy_grafana_drilldown.png" alt="drilldown alloy logs" title="drilldown alloy logs"></p>
+<h3 id="helpful-troubleshooting-commands">Helpful troubleshooting commands</h3>
+<p><strong>journalctl &ndash;user -e -o json</strong> - checks all the fields of a log record in the journal<br>
+<strong>journalctl &ndash;user _SYSTEMD_USER_UNIT=blogposts__alloy.service</strong> - check logs only for that specific user unit<br>
+<strong>nc -vz -w 1 localhost 12345</strong> - check if port 12345 is open<br>
+<strong>curl -v http://localhost:12345/metrics</strong>  - if you see metrics here, it means we&rsquo;re online<br>
+<strong>curl -v http://localhost:12346/ready &amp;&amp; echo</strong>  - if you see &ldquo;ready&rdquo;, it means it can receive logs</p>
+
+        </section>
+        <div class="post-tags">
+          
+          
+          <nav class="nav tags">
+            <ul class="tags">
+              
+              <li><a href="/tags/sys">sys</a></li>
+              
+            </ul>
+          </nav>
+          
+          
+        </div>
+      </div>
+
+      
+      
+    </div>
+
+    </article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/x7upLime" rel="me" title="Github"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#github" />
+</svg></a><a class="border"></a><a class="soc" href="https://twitter.com/atcorduneanu/" rel="me" title="Twitter"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#twitter" />
+</svg></a><a class="border"></a><a class="soc" href="mailto:andreitudor.corduneanu@gmail.com" rel="me" title="Mail"><svg class="feather">
+   <use href="/svg/feather-sprite.51cf5647cb1987f769b616558f2620fd9423d72058490231b391bf6aa3744b55.svg#mail" />
+</svg></a><a class="border"></a></div>
+  <div class="footer-info">
+    2025  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+
+
+  
+
+
+
+</div>
+    </body>
+</html>
