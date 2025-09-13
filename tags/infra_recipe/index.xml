@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Infra_recipe on andrewdomain Blog</title>
+    <link>/tags/infra_recipe/</link>
+    <description>Recent content in Infra_recipe on andrewdomain Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 08 Sep 2025 18:50:04 +0300</lastBuildDate>
+    <atom:link href="/tags/infra_recipe/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Gitea_install En</title>
+      <link>/posts/gitea_install-en/</link>
+      <pubDate>Mon, 08 Sep 2025 18:50:04 +0300</pubDate>
+      <guid>/posts/gitea_install-en/</guid>
+      <description>Every infrastructure has a brain.&#xA;Sometimes it&amp;rsquo;s an inventory platform that somebody wrote many years ago, if you&amp;rsquo;re unlucky it&amp;rsquo;s one of those old CMDBs that works awfully, if you&amp;rsquo;re lucky, today a good candidate is a git server.&#xA;The git server is one of the most versatile pieces of software that you can find around. It has a small and simple core idea, but it does it so well and is so elegant, that it can be used as a lot of things.</description>
+    </item>
+    <item>
+      <title>Alloy_install En</title>
+      <link>/posts/alloy_install-en/</link>
+      <pubDate>Mon, 08 Sep 2025 09:26:09 +0300</pubDate>
+      <guid>/posts/alloy_install-en/</guid>
+      <description>There are cases in which you want to hook an application instance, platform, hardware or whatever, into your collector of whatever.&#xA;It may happen that your collector of whatever needs clients to speak a certain protocol, that they may not know. So in that case the only way is to put something in between to translate.&#xA;Grafana Alloy is a distribution of something called OpenTelemetry Collector, which in turn enables you to create pipelines that can ingest, transform and forward metrics, logs, traces, &amp;hellip; into stuff like our Loki or our Prometheus that we set up in previous articles.</description>
+    </item>
+    <item>
+      <title>Grafana_install En</title>
+      <link>/posts/grafana_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 22:19:34 +0300</pubDate>
+      <guid>/posts/grafana_install-en/</guid>
+      <description>Grafana is at the top of many stacks of services that together generate observability platforms and such, just because it has a very general use: to display stuff.&#xA;For this reason and because it does what it does very well, you&amp;rsquo;ll find Grafana stuff around also on top of standalone applications, as screenshots of graphs in articles online or in any other contexts where you have some data that you need to display.</description>
+    </item>
+    <item>
+      <title>Loki_install En</title>
+      <link>/posts/loki_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 16:41:28 +0300</pubDate>
+      <guid>/posts/loki_install-en/</guid>
+      <description>The more sources you have generating logs that you need to collect, visualize, and manage and so on, the more it becomes a necessity to have a central location where all logs converge, so that then it becomes much easier to perform operations from visualization to backup.&#xA;If you don&amp;rsquo;t see the value of doing so in your home lab, you can do that just for the sake of learning, because it is a real-world scenario need.</description>
+    </item>
+    <item>
+      <title>Prometheus_install En</title>
+      <link>/posts/prometheus_install-en/</link>
+      <pubDate>Sun, 07 Sep 2025 01:32:58 +0300</pubDate>
+      <guid>/posts/prometheus_install-en/</guid>
+      <description>Say you want to keep under observation things like a platform, operating system, how many times do you go to the bathroom during office hours, &amp;hellip; for all those needs and many more, there are specific types of data that are better suited to represent, store and process this kind of information.&#xA;Prometheus defines counters, gauges and histograms as native metric types, that respectively represent values that increase, that can go up/down, and samples of observations.</description>
+    </item>
+    <item>
+      <title>Mail_install En</title>
+      <link>/posts/mail_install-en/</link>
+      <pubDate>Sat, 06 Sep 2025 21:40:45 +0300</pubDate>
+      <guid>/posts/mail_install-en/</guid>
+      <description>Say you have a private NATted network where you&amp;rsquo;re running a couple of services, maybe those services occasionally have the need to notify users and administrators (you could be both) about stuff that is happening (observability stack), stuff that needs your intervention (still observability and remediation stuff, automations, &amp;hellip;), or whatever other reason that you may think of&amp;hellip;&#xA;In this article we&amp;rsquo;re spinning up a dedicated machine that will act as the mail host for the blog.</description>
+    </item>
+    <item>
+      <title>Bare_libvirtd</title>
+      <link>/posts/bare_libvirtd/</link>
+      <pubDate>Thu, 21 Aug 2025 23:08:51 +0200</pubDate>
+      <guid>/posts/bare_libvirtd/</guid>
+      <description>Create virtual machines using just virsh on a linux KVM/QEMU hypervisor.&#xA;Cheat sheet Check info about the qcow2 image that you&amp;rsquo;re looking at:&#xA;qemu-img info &amp;lt;/path/to/file&amp;gt;&#xA;Overlay a base qcow2 image:&#xA;qemu-img create -f qcow2 -b &amp;lt;/path/to/base/image&amp;gt; -F qcow2 &amp;lt;/path/to/new/image&amp;gt;&#xA;Overlay a base qcow2 image with specific virtual size:&#xA;qemu-img create -f qcow2 -b &amp;lt;/path/to/base/image&amp;gt; -F qcow2 &amp;lt;/path/to/new/image&amp;gt; G&#xA;Shows your active libvirt networks:&#xA;virsh net-list&#xA;Duplicate a network&amp;rsquo;s xml definition:</description>
+    </item>
+  </channel>
+</rss>
