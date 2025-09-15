@@ -135,6 +135,7 @@ mynetworks = 192.168.126.0/24, 127.0.0.0/8
 
 # Remember that if using lmtp home_mailbox and mail_spool_directory
 # should be left unset on the postfix side as Dovecot will take care of that
+mailbox_transport = lmtp:unix:/run/dovecot/lmtp
 </code></pre><p>To check the sanity of your postfix config file:<br>
 <strong>postconf -n</strong></p>
 <p>If it exits successfully <code>echo $?</code>, it means the config is at least syntactically correct.</p>
